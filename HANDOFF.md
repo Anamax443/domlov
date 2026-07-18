@@ -2,6 +2,13 @@
 
 Append-only. Nejnovější záznam nahoru. Slouží k pokračování z jiného počítače / po pauze.
 
+## 2026-07-18 — NASAZENO naživo ✅
+- **Live:** https://domlov.bass443.workers.dev (účet bass443). Ověřeno v produkci: version/health/statika 200,
+  RDAP kontrola i Workers AI generátor fungují.
+- **Repo:** https://github.com/Anamax443/domlov (public).
+- **Zbývá (volitelné):** Google klíče (`GOOGLE_API_KEY` + `GOOGLE_CX` přes `wrangler secret put`) → zapne sloupec Google.
+  Bez nich appka jede, skóre jen z domén.
+
 ## 2026-07-18 — MVP hotové, lokálně ověřené
 - **Hotové:**
   - Cloudflare Worker (`src/index.ts`): `/api/hunt`, `/api/check`, `/api/health`, `/api/version` + statika.
