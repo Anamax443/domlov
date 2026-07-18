@@ -1,0 +1,21 @@
+{
+  // domlov — Cloudflare Worker (statický frontend + API)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "domlov",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  // Workers AI — generátor názvů (free denní kvóta)
+  "ai": {
+    "binding": "AI"
+  },
+  "observability": {
+    "enabled": true
+  }
+  // Secrety (NEJSOU v repu): GOOGLE_API_KEY, GOOGLE_CX
+  //   lokálně:  .dev.vars   (viz .dev.vars.example)
+  //   produkce: npx wrangler secret put GOOGLE_API_KEY  /  GOOGLE_CX
+}

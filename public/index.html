@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>domlov — lov volných domén</title>
+  <meta name="description" content="Generátor značkových názvů + kontrola dostupnosti domén (.com/.cz…) a stopy v Googlu." />
+  <!-- téma před renderem (bez FOUC) -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("axima.theme") || "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    /* ===== AXIMA UI — archetyp A (IT-ops konzole), DARK default ===== */
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --surface-hover:#334155; --border:#334155;
+      --text:#e2e8f0; --text-dim:#94a3b8; --accent:#3b82f6;
+      --ok:#22c55e; --warn:#eab308; --error:#f97316; --critical:#ef4444;
+      --font:'Segoe UI', system-ui, -apple-system, sans-serif;
+      --font-mono: Consolas, 'Cascadia Mono', monospace;
+    }
+    html[data-theme="light"] {
+      --bg:#f8fafc; --surface:#ffffff; --surface-hover:#f1f5f9;
+      --border:#e2e8f0; --text:#0f172a; --text-dim:#475569; --accent:#3b82f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin:0; background:var(--bg); color:var(--text); font-family:var(--font);
+      line-height:1.5; -webkit-font-smoothing:antialiased;
+    }
+    a { color:var(--accent); }
+    .mono { font-family:var(--font-mono); }
+    .muted, .text-dim { color:var(--text-dim); }
+
+    /* ===== Topbar + servisní řádek ===== */
+    .topbar {
+      display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+      padding:10px 18px; border-bottom:1px solid var(--border);
+      background:var(--surface); position:sticky; top:0; z-index:10;
+    }
+    .brand { display:flex; align-items:baseline; gap:10px; font-weight:700; font-size:18px; }
+    .brand small { font-weight:400; font-size:12px; color:var(--text-dim); }
+    .brand .logo { color:var(--accent); }
+    .service { margin-left:auto; display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:12px; }
+    .health { display:flex; gap:12px; }
+    .health span { display:inline-flex; align-items:center; gap:5px; color:var(--text-dim); }
+    .dot { width:9px; height:9px; border-radius:50%; background:var(--text-dim); display:inline-block; }
+    .dot.on { background:var(--ok); } .dot.off { background:var(--critical); } .dot.idle { background:var(--warn); }
+    .commit { color:var(--text-dim); }
+    .clock { color:var(--text-dim); }
+    .toggles { display:flex; gap:6px; }
+    .toggles button {
+      background:transparent; border:1px solid var(--border); color:var(--text);
+      border-radius:6px; padding:4px 9px; cursor:pointer; font-size:12px;
+    }
+    .toggles button:hover { background:var(--surface-hover); }
+
+    /* ===== Layout ===== */
+    main { max-width:1100px; margin:0 auto; padding:22px 18px 60px; }
+    h1 { font-size:22px; margin:6px 0 4px; }
+    .lead { color:var(--text-dim); margin:0 0 20px; max-width:720px; }
+
+    .tabs { display:flex; gap:6px; border-bottom:1px solid var(--border); margin-bottom:18px; }
+    .tabs button {
+      background:transparent; border:none; border-bottom:2px solid transparent; color:var(--text-dim);
+      padding:9px 14px; cursor:pointer; font-size:14px; font-family:var(--font);
+    }
+    .tabs button.active { color:var(--text); border-bottom-color:var(--accent); }
+
+    .card {
+      background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      padding:18px; margin-bottom:18px;
+    }
+    label.field { display:block; margin-bottom:14px; }
+    label.field > span { display:block; font-size:13px; color:var(--text-dim); margin-bottom:5px; }
+    input[type=text], input[type=number], select {
+      width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+      border-radius:6px; padding:9px 11px; font-size:14px; font-family:var(--font);
+    }
+    input:focus, select:focus { outline:none; border-color:var(--accent); }
+    .row { display:flex; gap:14px; flex-wrap:wrap; }
+    .row > * { flex:1; min-width:160px; }
+
+    .tlds { display:flex; gap:8px; flex-wrap:wrap; }
+    .tlds label {
+      display:inline-flex; align-items:center; gap:6px; padding:5px 10px;
+      border:1px solid var(--border); border-radius:20px; cursor:pointer; font-size:13px; user-select:none;
+    }
+    .tlds input { accent-color:var(--accent); }
+
+    .btn {
+      background:var(--accent); color:#fff; border:none; border-radius:6px;
+      padding:10px 18px; font-size:14px; cursor:pointer; font-weight:600;
+    }
+    .btn:hover { filter:brightness(1.08); }
+    .btn:disabled { opacity:.55; cursor:not-allowed; }
+
+    .banner {
+      border:1px solid var(--border); border-left:3px solid var(--warn);
+      background:var(--surface); border-radius:6px; padding:10px 14px; margin-bottom:16px; font-size:13px;
+    }
+    .banner.err { border-left-color:var(--critical); }
+    .banner.info { border-left-color:var(--accent); }
+
+    /* ===== Výsledky ===== */
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); }
+    th { color:var(--text-dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+    td.name { font-family:var(--font-mono); font-weight:600; font-size:15px; }
+    tr.top td.name::after { content:" ★"; color:var(--warn); }
+
+    .pill { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:20px; font-size:12px; font-weight:600; }
+    .pill.free { background:color-mix(in srgb, var(--ok) 20%, transparent); color:var(--ok); }
+    .pill.taken { background:color-mix(in srgb, var(--critical) 18%, transparent); color:var(--critical); }
+    .pill.unknown { background:color-mix(in srgb, var(--text-dim) 18%, transparent); color:var(--text-dim); }
+
+    .score { display:flex; align-items:center; gap:8px; }
+    .scorebar { width:60px; height:7px; border-radius:4px; background:var(--border); overflow:hidden; }
+    .scorebar > i { display:block; height:100%; background:var(--accent); }
+    .scoreval { font-family:var(--font-mono); font-weight:700; min-width:28px; }
+    .gcount { font-family:var(--font-mono); }
+    .gcount.low { color:var(--ok); } .gcount.mid { color:var(--warn); } .gcount.high { color:var(--error); }
+
+    .spinner { display:inline-block; width:15px; height:15px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    details.doc { margin-bottom:12px; }
+    details.doc summary { cursor:pointer; font-weight:600; padding:6px 0; }
+    .doc ul { margin:6px 0; }
+
+    .foot { max-width:1100px; margin:0 auto; padding:16px 18px; color:var(--text-dim); font-size:12px; border-top:1px solid var(--border); }
+
+    /* ===== Tisk = vždy light ===== */
+    @media print {
+      :root, html[data-theme] { --bg:#fff; --surface:#fff; --text:#000; --text-dim:#333; --border:#bbb; }
+      .topbar, .foot, .tabs, .no-print, [data-no-print] { display:none !important; }
+      * { box-shadow:none !important; background-image:none !important; }
+      .card { border:1px solid #bbb; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">◎</span> domlov <small data-i18n="tagline">lov volných domén</small></div>
+    <div class="service" data-no-print>
+      <div class="health">
+        <span title="Backend"><i id="h-backend" class="dot idle"></i> Backend</span>
+        <span title="Workers AI"><i id="h-ai" class="dot idle"></i> AI</span>
+        <span title="Google Custom Search"><i id="h-google" class="dot idle"></i> Google</span>
+      </div>
+      <span class="commit mono" id="commit" title="">·</span>
+      <span class="clock mono" id="clock">–</span>
+      <div class="toggles">
+        <button id="btn-lang" title="Jazyk / Language">CZ</button>
+        <button id="btn-theme" title="Téma / Theme">🌓</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <h1 data-i18n="h1">Najdi volný název i doménu</h1>
+    <p class="lead" data-i18n="lead">
+      Zadej zaměření → vygeneruju značkové názvy a u každého zkontroluju volné domény a stopu v Googlu.
+      Ideál = volná <b>.com</b>/<b>.cz</b> + minimum výsledků v Googlu (jako „faxxar“).
+    </p>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="gen" data-i18n="tab_gen">Generátor</button>
+      <button class="tab" data-tab="check" data-i18n="tab_check">Rychlá kontrola</button>
+      <button class="tab" data-tab="doc" data-i18n="tab_doc">Dokumentace</button>
+    </div>
+
+    <!-- ===== Generátor ===== -->
+    <section id="panel-gen" class="panel">
+      <div class="card">
+        <label class="field">
+          <span data-i18n="f_theme">Zaměření / téma (klidně česky)</span>
+          <input type="text" id="theme" placeholder="např. fitness appka, keltská kapela, DCA index" />
+        </label>
+        <div class="row">
+          <label class="field" style="max-width:160px">
+            <span data-i18n="f_count">Počet návrhů</span>
+            <input type="number" id="count" value="8" min="1" max="12" />
+          </label>
+          <label class="field">
+            <span data-i18n="f_tlds">Domény ke kontrole</span>
+            <div class="tlds" id="tlds-gen"></div>
+          </label>
+        </div>
+        <button class="btn" id="go-gen" data-i18n="btn_hunt">Lovit názvy</button>
+      </div>
+    </section>
+
+    <!-- ===== Rychlá kontrola ===== -->
+    <section id="panel-check" class="panel" hidden>
+      <div class="card">
+        <label class="field">
+          <span data-i18n="f_name">Konkrétní název</span>
+          <input type="text" id="name" placeholder="např. clashio" />
+        </label>
+        <label class="field">
+          <span data-i18n="f_tlds">Domény ke kontrole</span>
+          <div class="tlds" id="tlds-check"></div>
+        </label>
+        <button class="btn" id="go-check" data-i18n="btn_check">Zkontrolovat</button>
+      </div>
+    </section>
+
+    <!-- ===== Dokumentace (rozcestník) ===== -->
+    <section id="panel-doc" class="panel" hidden>
+      <div class="card">
+        <details class="doc" open>
+          <summary data-i18n="doc_how">Jak to funguje</summary>
+          <ul>
+            <li data-i18n="doc_how1"><b>Názvy</b> generuje Cloudflare Workers AI (Llama) podle tvého zaměření.</li>
+            <li data-i18n="doc_how2"><b>Dostupnost domén</b> se zjišťuje přes RDAP (404 = volná, 200 = zabraná). Autoritativně pro .com/.cz/.net.</li>
+            <li data-i18n="doc_how3"><b>Stopa v Googlu</b> = počet výsledků z Google Custom Search. Méně = čistší značka.</li>
+          </ul>
+        </details>
+        <details class="doc">
+          <summary data-i18n="doc_score">Jak se počítá skóre</summary>
+          <ul>
+            <li data-i18n="doc_score1">55 % = dostupnost domén (.com a .cz mají největší váhu).</li>
+            <li data-i18n="doc_score2">45 % = nízká stopa v Googlu (log škála: 0 výsledků = plný bod).</li>
+            <li data-i18n="doc_score3">★ = nejlepší kandidát v seznamu.</li>
+          </ul>
+        </details>
+        <details class="doc">
+          <summary data-i18n="doc_google">Google počty nefungují?</summary>
+          <ul>
+            <li data-i18n="doc_google1">Bez klíče appka běží dál — jen bez sloupce Google.</li>
+            <li data-i18n="doc_google2">Zapnutí: Google Programmable Search Engine + API klíč (free 100 dotazů/den). Postup v docs/BUILD.md.</li>
+          </ul>
+        </details>
+        <details class="doc">
+          <summary data-i18n="doc_free">Bezplatné?</summary>
+          <ul>
+            <li data-i18n="doc_free1">Cloudflare Worker + Workers AI = free tier. RDAP = zdarma. Google CSE = 100 dotazů/den zdarma.</li>
+          </ul>
+        </details>
+      </div>
+    </section>
+
+    <div id="msg"></div>
+    <div id="results"></div>
+  </main>
+
+  <footer class="foot">© 2026 Milan Trnka · domlov</footer>
+
+  <script>
+    /* ===================== i18n ===================== */
+    var I18N = {
+      cs: {
+        tagline:"lov volných domén", h1:"Najdi volný název i doménu",
+        lead:"Zadej zaměření → vygeneruju značkové názvy a u každého zkontroluju volné domény a stopu v Googlu. Ideál = volná .com/.cz + minimum výsledků v Googlu (jako „faxxar“).",
+        tab_gen:"Generátor", tab_check:"Rychlá kontrola", tab_doc:"Dokumentace",
+        f_theme:"Zaměření / téma (klidně česky)", f_count:"Počet návrhů", f_tlds:"Domény ke kontrole",
+        f_name:"Konkrétní název", btn_hunt:"Lovit názvy", btn_check:"Zkontrolovat",
+        th_name:"Název", th_google:"Google", th_score:"Skóre",
+        doc_how:"Jak to funguje", doc_score:"Jak se počítá skóre", doc_google:"Google počty nefungují?", doc_free:"Bezplatné?",
+        loading:"Pracuju…", err:"Chyba", empty:"Nic se nevygenerovalo, zkus jiné zaměření.",
+        need_theme:"Zadej zaměření.", need_name:"Zadej název.",
+        g_off:"Google počty jsou vypnuté (chybí klíč) — skóre je jen podle domén. Zapnutí viz Dokumentace."
+      },
+      en: {
+        tagline:"free-domain hunting", h1:"Find a free name and domain",
+        lead:"Enter a focus → I generate brandable names and check free domains + Google footprint for each. Ideal = free .com/.cz + minimal Google results (like “faxxar”).",
+        tab_gen:"Generator", tab_check:"Quick check", tab_doc:"Docs",
+        f_theme:"Focus / theme (Czech is fine)", f_count:"How many", f_tlds:"Domains to check",
+        f_name:"Specific name", btn_hunt:"Hunt names", btn_check:"Check",
+        th_name:"Name", th_google:"Google", th_score:"Score",
+        doc_how:"How it works", doc_score:"How the score works", doc_google:"Google counts not working?", doc_free:"Free?",
+        loading:"Working…", err:"Error", empty:"Nothing generated, try another focus.",
+        need_theme:"Enter a focus.", need_name:"Enter a name.",
+        g_off:"Google counts are off (no key) — score is domain-only. See Docs to enable."
+      }
+    };
+    var lang = (localStorage.getItem("axima.lang") || "cs");
+    function t(k){ return (I18N[lang] && I18N[lang][k]) || (I18N.cs[k]) || k; }
+    function applyI18n(){
+      document.documentElement.lang = lang;
+      document.querySelectorAll("[data-i18n]").forEach(function(el){
+        var k = el.getAttribute("data-i18n"); if (I18N[lang][k]) el.innerHTML = I18N[lang][k];
+      });
+      document.getElementById("btn-lang").textContent = (lang === "cs" ? "CZ" : "EN");
+    }
+
+    /* ===================== téma + jazyk ===================== */
+    document.getElementById("btn-theme").onclick = function(){
+      var cur = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+      var next = cur === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("axima.theme", next);
+    };
+    document.getElementById("btn-lang").onclick = function(){
+      lang = (lang === "cs" ? "en" : "cs"); localStorage.setItem("axima.lang", lang); applyI18n();
+    };
+
+    /* ===================== hodiny (heartbeat 1s) ===================== */
+    function tick(){
+      try { document.getElementById("clock").textContent = new Date().toLocaleString(lang==="cs"?"cs-CZ":"en-GB"); } catch(e){}
+    }
+    setInterval(tick, 1000); tick();
+
+    /* ===================== TLD checkboxy ===================== */
+    var TLDS = ["com","cz","net","io","app","dev","org"];
+    function buildTlds(hostId, checked){
+      var host = document.getElementById(hostId);
+      host.innerHTML = TLDS.map(function(tl){
+        var on = checked.indexOf(tl) >= 0 ? "checked" : "";
+        return '<label><input type="checkbox" value="'+tl+'" '+on+'>.'+tl+'</label>';
+      }).join("");
+    }
+    buildTlds("tlds-gen", ["com","cz"]);
+    buildTlds("tlds-check", ["com","cz","net","io","app"]);
+    function pickedTlds(hostId){
+      return Array.prototype.map.call(document.querySelectorAll("#"+hostId+" input:checked"), function(i){ return i.value; });
+    }
+
+    /* ===================== taby ===================== */
+    document.querySelectorAll(".tab").forEach(function(b){
+      b.onclick = function(){
+        document.querySelectorAll(".tab").forEach(function(x){ x.classList.remove("active"); });
+        b.classList.add("active");
+        ["gen","check","doc"].forEach(function(p){
+          document.getElementById("panel-"+p).hidden = (p !== b.dataset.tab);
+        });
+      };
+    });
+
+    /* ===================== health + verze ===================== */
+    function setDot(id, state){ document.getElementById(id).className = "dot " + state; }
+    fetch("/api/version").then(function(r){ return r.json(); }).then(function(v){
+      var c = document.getElementById("commit");
+      c.textContent = (v.commit || "dev");
+      c.title = "commit " + (v.commit||"dev") + " · " + (v.branch||"") + (v.builtAt?(" · "+v.builtAt):"");
+    }).catch(function(){});
+    fetch("/api/health").then(function(r){ return r.json(); }).then(function(h){
+      setDot("h-backend", h.ok ? "on":"off");
+      setDot("h-ai", h.ai ? "on":"idle");
+      setDot("h-google", h.google ? "on":"idle");
+      window.__googleOn = !!h.google;
+    }).catch(function(){ setDot("h-backend","off"); });
+
+    /* ===================== formátování ===================== */
+    function fmtCount(n){
+      if (n == null) return "–";
+      if (n < 1000) return "≈"+n;
+      if (n < 1e6) return "≈"+(n/1e3).toFixed(n<1e4?1:0)+"k";
+      if (n < 1e9) return "≈"+(n/1e6).toFixed(1)+"M";
+      return "≈"+(n/1e9).toFixed(1)+"B";
+    }
+    function gClass(n){ if (n==null) return ""; if (n<2000) return "low"; if (n<200000) return "mid"; return "high"; }
+    function pill(state){
+      var lbl = state==="free" ? (lang==="cs"?"volná":"free") : state==="taken" ? (lang==="cs"?"zabraná":"taken") : "?";
+      return '<span class="pill '+state+'">'+lbl+'</span>';
+    }
+    function msg(html, cls){ document.getElementById("msg").innerHTML = html ? '<div class="banner '+(cls||"info")+'">'+html+'</div>' : ""; }
+
+    /* ===================== render tabulky ===================== */
+    function renderTable(tlds, results){
+      if (!results.length) { document.getElementById("results").innerHTML = '<p class="muted">'+t("empty")+'</p>'; return; }
+      var head = '<tr><th>'+t("th_name")+'</th>' +
+        tlds.map(function(tl){ return '<th>.'+tl+'</th>'; }).join("") +
+        '<th>'+t("th_google")+'</th><th>'+t("th_score")+'</th></tr>';
+      var rows = results.map(function(r, i){
+        var cells = tlds.map(function(tl){ return '<td>'+pill(r.avail[tl]||"unknown")+'</td>'; }).join("");
+        var g = '<td class="gcount '+gClass(r.google)+'">'+fmtCount(r.google)+'</td>';
+        var sc = '<td><div class="score"><div class="scorebar"><i style="width:'+r.score+'%"></i></div><span class="scoreval">'+r.score+'</span></div></td>';
+        return '<tr class="'+(i===0?"top":"")+'"><td class="name">'+r.name+'</td>'+cells+g+sc+'</tr>';
+      }).join("");
+      document.getElementById("results").innerHTML = '<div class="card" style="overflow-x:auto"><table>'+head+rows+'</table></div>';
+    }
+
+    /* ===================== akce ===================== */
+    function busy(btn, on){ btn.disabled = on; }
+
+    document.getElementById("go-gen").onclick = function(){
+      var theme = document.getElementById("theme").value.trim();
+      if (!theme) { msg(t("need_theme"), "err"); return; }
+      var tlds = pickedTlds("tlds-gen"); if (!tlds.length) tlds = ["com","cz"];
+      var count = parseInt(document.getElementById("count").value,10) || 8;
+      var btn = this; busy(btn,true);
+      msg('<span class="spinner"></span> '+t("loading"));
+      document.getElementById("results").innerHTML = "";
+      fetch("/api/hunt", { method:"POST", headers:{"content-type":"application/json"},
+        body: JSON.stringify({ theme:theme, count:count, tlds:tlds }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (d.error) { msg(t("err")+": "+d.error, "err"); return; }
+          msg(d.googleEnabled ? "" : t("g_off"), "info");
+          renderTable(d.tlds, d.results);
+        })
+        .catch(function(e){ msg(t("err")+": "+e, "err"); })
+        .finally(function(){ busy(btn,false); });
+    };
+
+    document.getElementById("go-check").onclick = function(){
+      var name = document.getElementById("name").value.trim();
+      if (!name) { msg(t("need_name"), "err"); return; }
+      var tlds = pickedTlds("tlds-check"); if (!tlds.length) tlds = ["com","cz"];
+      var btn = this; busy(btn,true);
+      msg('<span class="spinner"></span> '+t("loading"));
+      document.getElementById("results").innerHTML = "";
+      fetch("/api/check", { method:"POST", headers:{"content-type":"application/json"},
+        body: JSON.stringify({ name:name, tlds:tlds }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (d.error) { msg(t("err")+": "+d.error, "err"); return; }
+          msg(d.googleEnabled ? "" : t("g_off"), "info");
+          renderTable(tlds, [d.result]);
+        })
+        .catch(function(e){ msg(t("err")+": "+e, "err"); })
+        .finally(function(){ busy(btn,false); });
+    };
+
+    // Enter = odeslat
+    document.getElementById("theme").addEventListener("keydown", function(e){ if(e.key==="Enter") document.getElementById("go-gen").click(); });
+    document.getElementById("name").addEventListener("keydown", function(e){ if(e.key==="Enter") document.getElementById("go-check").click(); });
+
+    applyI18n();
+  </script>
+</body>
+</html>
