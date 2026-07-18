@@ -2,6 +2,12 @@
 
 Append-only. Nejnovější záznam nahoru. Slouží k pokračování z jiného počítače / po pauze.
 
+## 2026-07-18 — dokumentace + status page
+- Přidán **docs/project-status.html** (manažerská vrstva dle standardu: stav, milníky, stack, náklady;
+  AXIMA styl, dark/light + tisk v light, CZ/EN).
+- README doplněn o live URL + odkaz na status page. README/ARCHITECTURE/BUILD aktuální k nasazení.
+- Vše zacommitováno na `main` a pushnuto na GitHub.
+
 ## 2026-07-18 — NASAZENO naživo ✅
 - **Live:** https://domlov.bass443.workers.dev (účet bass443). Ověřeno v produkci: version/health/statika 200,
   RDAP kontrola i Workers AI generátor fungují.

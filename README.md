@@ -2,6 +2,8 @@
 
 > Lov volných domén + generátor značkových názvů. Zadáš zaměření → dostaneš názvy s kontrolou dostupnosti domén a stopou v Googlu.
 
+**🌐 Běží naživo:** <https://domlov.bass443.workers.dev> · **Stav projektu:** [docs/project-status.html](docs/project-status.html)
+
 ## Co to dělá
 
 - **Generátor názvů** — podle zaměření (klidně česky) vymyslí značkové, vymyšlené názvy (Cloudflare Workers AI / Llama).

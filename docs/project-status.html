@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>domlov — stav projektu</title>
+  <script>
+    (function () {
+      try { document.documentElement.setAttribute("data-theme", localStorage.getItem("axima.theme") || "dark"); } catch (e) {}
+    })();
+  </script>
+  <style>
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --surface-hover:#334155; --border:#334155;
+      --text:#e2e8f0; --text-dim:#94a3b8; --accent:#3b82f6;
+      --ok:#22c55e; --warn:#eab308; --error:#f97316; --critical:#ef4444;
+      --font:'Segoe UI', system-ui, -apple-system, sans-serif;
+      --font-mono: Consolas, 'Cascadia Mono', monospace;
+    }
+    html[data-theme="light"] {
+      --bg:#f8fafc; --surface:#ffffff; --surface-hover:#f1f5f9;
+      --border:#e2e8f0; --text:#0f172a; --text-dim:#475569; --accent:#3b82f6;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font); line-height:1.55; }
+    a { color:var(--accent); }
+    .mono { font-family:var(--font-mono); }
+    .muted { color:var(--text-dim); }
+
+    .topbar { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:10px 18px;
+      border-bottom:1px solid var(--border); background:var(--surface); position:sticky; top:0; z-index:10; }
+    .brand { font-weight:700; font-size:18px; } .brand .logo { color:var(--accent); }
+    .brand small { font-weight:400; font-size:12px; color:var(--text-dim); margin-left:6px; }
+    .service { margin-left:auto; display:flex; align-items:center; gap:14px; font-size:12px; color:var(--text-dim); }
+    .toggles button { background:transparent; border:1px solid var(--border); color:var(--text);
+      border-radius:6px; padding:4px 9px; cursor:pointer; font-size:12px; margin-left:6px; }
+    .toggles button:hover { background:var(--surface-hover); }
+
+    main { max-width:1000px; margin:0 auto; padding:24px 18px 60px; }
+    h1 { font-size:24px; margin:4px 0 6px; }
+    h2 { font-size:16px; margin:26px 0 12px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); }
+    .lead { color:var(--text-dim); max-width:720px; }
+    .badges { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 4px; }
+    .badge { display:inline-flex; align-items:center; gap:7px; padding:6px 12px; border:1px solid var(--border);
+      border-radius:8px; background:var(--surface); font-size:13px; text-decoration:none; color:var(--text); }
+    .badge b { color:var(--accent); }
+    .dot { width:9px; height:9px; border-radius:50%; display:inline-block; background:var(--ok); }
+
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px 18px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+
+    .ms { list-style:none; margin:0; padding:0; }
+    .ms li { display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--border); }
+    .ms li:last-child { border-bottom:none; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+    .pill.done { background:color-mix(in srgb, var(--ok) 20%, transparent); color:var(--ok); }
+    .pill.opt  { background:color-mix(in srgb, var(--warn) 20%, transparent); color:var(--warn); }
+    .ms .what { flex:1; }
+
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { color:var(--text-dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+    td.k { font-weight:600; white-space:nowrap; }
+
+    .foot { max-width:1000px; margin:0 auto; padding:16px 18px; color:var(--text-dim);
+      font-size:12px; border-top:1px solid var(--border); }
+
+    @media print {
+      :root, html[data-theme] { --bg:#fff; --surface:#fff; --text:#000; --text-dim:#333; --border:#bbb; }
+      .topbar, .no-print { display:none !important; }
+      * { box-shadow:none !important; }
+      .card, .badge { border:1px solid #bbb; }
+      a { color:#000; text-decoration:underline; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar no-print">
+    <div class="brand"><span class="logo">◎</span> domlov <small data-i18n="sub">stav projektu</small></div>
+    <div class="service">
+      <span class="mono" id="clock">–</span>
+      <div class="toggles">
+        <button id="btn-lang">CZ</button>
+        <button id="btn-theme">🌓</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <h1 data-i18n="h1">domlov — stav projektu</h1>
+    <p class="lead" data-i18n="lead">
+      Lov volných domén + generátor značkových názvů. Zadáš zaměření → appka vygeneruje značkové názvy
+      a u každého zkontroluje volné domény (RDAP) a stopu v Googlu. Ideál = volná <b>.com</b>/<b>.cz</b> + minimum výsledků v Googlu.
+    </p>
+
+    <div class="badges">
+      <span class="badge"><span class="dot"></span> <b data-i18n="b_status">Nasazeno naživo</b></span>
+      <a class="badge" href="https://domlov.bass443.workers.dev" target="_blank" rel="noopener">🌐 domlov.bass443.workers.dev</a>
+      <a class="badge" href="https://github.com/Anamax443/domlov" target="_blank" rel="noopener">📦 Anamax443/domlov <span class="muted" data-i18n="b_public">(public)</span></a>
+      <span class="badge">💸 <span data-i18n="b_cost">Provoz zdarma (free tiery)</span></span>
+    </div>
+
+    <h2 data-i18n="h_ms">Milníky</h2>
+    <div class="card">
+      <ul class="ms">
+        <li><span class="what" data-i18n="ms1">Scaffold podle project-standardu (new-project.ps1)</span><span class="pill done" data-i18n="p_done">Hotovo</span></li>
+        <li><span class="what" data-i18n="ms2">Jádro Workeru: RDAP dostupnost + Workers AI generátor + skóre</span><span class="pill done" data-i18n="p_done">Hotovo</span></li>
+        <li><span class="what" data-i18n="ms3">Frontend dle AXIMA UI (archetyp A): dark/light/tisk, CZ/EN, servisní řádek</span><span class="pill done" data-i18n="p_done">Hotovo</span></li>
+        <li><span class="what" data-i18n="ms4">Test lokálně i v produkci (RDAP 7 TLD, AI generátor, skóre)</span><span class="pill done" data-i18n="p_done">Hotovo</span></li>
+        <li><span class="what" data-i18n="ms5">Nasazení na Cloudflare Workers (účet bass443)</span><span class="pill done" data-i18n="p_done">Hotovo</span></li>
+        <li><span class="what" data-i18n="ms6">Veřejné repo + dokumentace (README, ARCHITECTURE, BUILD, HANDOFF)</span><span class="pill done" data-i18n="p_done">Hotovo</span></li>
+        <li><span class="what" data-i18n="ms7">Google počty výsledků (klíč GOOGLE_API_KEY + GOOGLE_CX)</span><span class="pill opt" data-i18n="p_opt">Volitelné</span></li>
+      </ul>
+    </div>
+
+    <h2 data-i18n="h_stack">Stack</h2>
+    <div class="card">
+      <table>
+        <tr><th data-i18n="t_part">Část</th><th data-i18n="t_tech">Technologie</th><th data-i18n="t_cost">Cena</th></tr>
+        <tr><td class="k" data-i18n="s_app">Web app</td><td>Cloudflare Worker (TypeScript)</td><td data-i18n="c_free1">zdarma (100k req/den)</td></tr>
+        <tr><td class="k" data-i18n="s_gen">Generátor názvů</td><td class="mono">@cf/meta/llama-3.3-70b-instruct-fp8-fast</td><td data-i18n="c_free2">Workers AI (denní kvóta)</td></tr>
+        <tr><td class="k" data-i18n="s_dom">Kontrola domén</td><td>RDAP (Verisign, CZ.NIC, IdentityDigital, rdap.org)</td><td data-i18n="c_free3">zdarma, bez klíče</td></tr>
+        <tr><td class="k" data-i18n="s_goo">Google stopa</td><td>Google Custom Search JSON API</td><td data-i18n="c_free4">zdarma 100/den (volitelné)</td></tr>
+      </table>
+    </div>
+
+    <h2 data-i18n="h_next">Další kroky</h2>
+    <div class="card">
+      <p style="margin:0" data-i18n="next1">
+        <b>Google počty výsledků</b> — teď vypnuté, appka skóruje jen podle domén. Zapnutí = 2 hodnoty
+        (<span class="mono">GOOGLE_API_KEY</span> + <span class="mono">GOOGLE_CX</span>) přes <span class="mono">wrangler secret put</span>.
+        Postup krok za krokem: <a href="BUILD.md">docs/BUILD.md</a> (~5 min, free 100 dotazů/den).
+      </p>
+    </div>
+
+    <h2 data-i18n="h_docs">Dokumentace</h2>
+    <div class="card grid">
+      <a class="badge" href="../README.md">README — přehled</a>
+      <a class="badge" href="ARCHITECTURE.md">ARCHITECTURE — jak je to poskládané</a>
+      <a class="badge" href="BUILD.md">BUILD — postavit od nuly</a>
+      <a class="badge" href="../HANDOFF.md">HANDOFF — deník stavu</a>
+    </div>
+  </main>
+
+  <footer class="foot">© 2026 Milan Trnka · domlov · <span data-i18n="f_gen">stav k</span> 2026-07-18</footer>
+
+  <script>
+    var I18N = {
+      cs: {
+        sub:"stav projektu", h1:"domlov — stav projektu",
+        lead:"Lov volných domén + generátor značkových názvů. Zadáš zaměření → appka vygeneruje značkové názvy a u každého zkontroluje volné domény (RDAP) a stopu v Googlu. Ideál = volná .com/.cz + minimum výsledků v Googlu.",
+        b_status:"Nasazeno naživo", b_public:"(public)", b_cost:"Provoz zdarma (free tiery)",
+        h_ms:"Milníky", p_done:"Hotovo", p_opt:"Volitelné",
+        ms1:"Scaffold podle project-standardu (new-project.ps1)",
+        ms2:"Jádro Workeru: RDAP dostupnost + Workers AI generátor + skóre",
+        ms3:"Frontend dle AXIMA UI (archetyp A): dark/light/tisk, CZ/EN, servisní řádek",
+        ms4:"Test lokálně i v produkci (RDAP 7 TLD, AI generátor, skóre)",
+        ms5:"Nasazení na Cloudflare Workers (účet bass443)",
+        ms6:"Veřejné repo + dokumentace (README, ARCHITECTURE, BUILD, HANDOFF)",
+        ms7:"Google počty výsledků (klíč GOOGLE_API_KEY + GOOGLE_CX)",
+        h_stack:"Stack", t_part:"Část", t_tech:"Technologie", t_cost:"Cena",
+        s_app:"Web app", s_gen:"Generátor názvů", s_dom:"Kontrola domén", s_goo:"Google stopa",
+        c_free1:"zdarma (100k req/den)", c_free2:"Workers AI (denní kvóta)", c_free3:"zdarma, bez klíče", c_free4:"zdarma 100/den (volitelné)",
+        h_next:"Další kroky",
+        next1:"Google počty výsledků — teď vypnuté, appka skóruje jen podle domén. Zapnutí = 2 hodnoty (GOOGLE_API_KEY + GOOGLE_CX) přes wrangler secret put. Postup krok za krokem: docs/BUILD.md (~5 min, free 100 dotazů/den).",
+        h_docs:"Dokumentace", f_gen:"stav k"
+      },
+      en: {
+        sub:"project status", h1:"domlov — project status",
+        lead:"Free-domain hunting + brandable name generator. Enter a focus → the app generates brandable names and checks free domains (RDAP) and Google footprint for each. Ideal = free .com/.cz + minimal Google results.",
+        b_status:"Live in production", b_public:"(public)", b_cost:"Runs for free (free tiers)",
+        h_ms:"Milestones", p_done:"Done", p_opt:"Optional",
+        ms1:"Scaffold from project-standard (new-project.ps1)",
+        ms2:"Worker core: RDAP availability + Workers AI generator + scoring",
+        ms3:"Frontend per AXIMA UI (archetype A): dark/light/print, CZ/EN, service row",
+        ms4:"Tested locally and in production (RDAP 7 TLDs, AI generator, scoring)",
+        ms5:"Deployed to Cloudflare Workers (bass443 account)",
+        ms6:"Public repo + docs (README, ARCHITECTURE, BUILD, HANDOFF)",
+        ms7:"Google result counts (GOOGLE_API_KEY + GOOGLE_CX)",
+        h_stack:"Stack", t_part:"Part", t_tech:"Technology", t_cost:"Cost",
+        s_app:"Web app", s_gen:"Name generator", s_dom:"Domain check", s_goo:"Google footprint",
+        c_free1:"free (100k req/day)", c_free2:"Workers AI (daily quota)", c_free3:"free, no key", c_free4:"free 100/day (optional)",
+        h_next:"Next steps",
+        next1:"Google result counts — currently off, the app scores by domains only. To enable = 2 values (GOOGLE_API_KEY + GOOGLE_CX) via wrangler secret put. Step by step: docs/BUILD.md (~5 min, free 100 queries/day).",
+        h_docs:"Documentation", f_gen:"status as of"
+      }
+    };
+    var lang = localStorage.getItem("axima.lang") || "cs";
+    function apply() {
+      document.documentElement.lang = lang;
+      document.querySelectorAll("[data-i18n]").forEach(function (el) {
+        var k = el.getAttribute("data-i18n"); if (I18N[lang][k]) el.textContent = I18N[lang][k];
+      });
+      document.getElementById("btn-lang").textContent = (lang === "cs" ? "CZ" : "EN");
+    }
+    document.getElementById("btn-lang").onclick = function () { lang = (lang === "cs" ? "en" : "cs"); localStorage.setItem("axima.lang", lang); apply(); };
+    document.getElementById("btn-theme").onclick = function () {
+      var next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next); localStorage.setItem("axima.theme", next);
+    };
+    function tick(){ try { document.getElementById("clock").textContent = new Date().toLocaleString(lang==="cs"?"cs-CZ":"en-GB"); } catch(e){} }
+    setInterval(tick, 1000); tick(); apply();
+  </script>
+</body>
+</html>
