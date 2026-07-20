@@ -114,6 +114,7 @@
     th { color:var(--text-dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
     td.name { font-family:var(--font-mono); font-weight:600; font-size:15px; }
     tr.top td.name::after { content:" ★"; color:var(--warn); }
+    tr.pinned td { background:color-mix(in srgb, var(--accent) 10%, transparent); }
 
     .pill { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:20px; font-size:12px; font-weight:600; }
     .pill.free { background:color-mix(in srgb, var(--ok) 20%, transparent); color:var(--ok); }
@@ -278,7 +279,8 @@
         g_off:"Web stopa je vypnutá (chybí Brave klíč) — skóre je jen podle domén. Zapnutí viz Dokumentace.",
         count_hint:"max {n} při {t} TLD", cap_note:"Kvůli počtu vybraných TLD je max {n} návrhů na lov — klikni na tlačítko Přegenerovat pro další.",
         regen_added:"Přidáno {n} nových návrhů.", regen_empty:"Už nemám nové návrhy — zkus jiné zaměření nebo míň TLD.",
-        none_free:"Žádný návrh není volný ve všech vybraných TLD — zruš filtr nebo přegeneruj."
+        none_free:"Žádný návrh není volný ve všech vybraných TLD — zruš filtr nebo přegeneruj.",
+        pin_hint:"Zatrhni 📌 u názvů, které chceš při přegenerování zachovat."
       },
       en: {
         tagline:"free-domain hunting", h1:"Find a free name and domain",
@@ -294,7 +296,8 @@
         g_off:"Web footprint is off (no Brave key) — score is domain-only. See Docs to enable.",
         count_hint:"max {n} for {t} TLDs", cap_note:"With the selected TLDs, max {n} names per hunt — click “Regenerate” for more.",
         regen_added:"Added {n} new names.", regen_empty:"No more new names — try another focus or fewer TLDs.",
-        none_free:"No name is free across all selected TLDs — clear the filter or regenerate."
+        none_free:"No name is free across all selected TLDs — clear the filter or regenerate.",
+        pin_hint:"Tick 📌 on the names you want to keep when regenerating."
       }
     };
     var lang = (localStorage.getItem("axima.lang") || "cs");
@@ -379,7 +382,7 @@
     function msg(html, cls){ document.getElementById("msg").innerHTML = html ? '<div class="banner '+(cls||"info")+'">'+html+'</div>' : ""; }
 
     /* ===================== stav generátoru + počet ===================== */
-    var HUNT = { theme:"", tlds:["com","cz"], names:{}, results:[] }; // names = množina už použitých jmen
+    var HUNT = { theme:"", tlds:["com","cz"], names:{}, pinned:{}, results:[] }; // names = použitá jména, pinned = zachovat
     var AUTH_TLDS = ["com","net","cz","io"]; // autoritativní RDAP (neretryuje) — kvůli odhadu stropu
     function maxNamesFor(tlds){
       var boot = tlds.filter(function(t){ return AUTH_TLDS.indexOf(t) < 0; }).length; // bootstrap TLD se počítají 2×
@@ -400,14 +403,17 @@
       var shown = onlyFree ? results.filter(function(r){ return tlds.every(function(tl){ return r.avail[tl] === "free"; }); }) : results;
       if (!results.length) { document.getElementById("results").innerHTML = '<p class="muted">'+t("empty")+'</p>'; return; }
       if (!shown.length) { document.getElementById("results").innerHTML = '<p class="muted">'+t("none_free")+'</p>'; return; }
-      var head = '<tr><th>'+t("th_name")+'</th>' +
+      var pinTitle = (lang==="cs"?"Zachovat při přegenerování":"Keep on regenerate");
+      var head = '<tr><th title="'+pinTitle+'">📌</th><th>'+t("th_name")+'</th>' +
         tlds.map(function(tl){ return '<th>.'+tl+'</th>'; }).join("") +
         '<th title="'+(lang==="cs"?"Kolik z top výsledků obsahuje jméno (méně = líp)":"How many top results contain the name (fewer = better)")+'">'+t("th_google")+'</th><th>'+t("th_score")+'</th></tr>';
       var rows = shown.map(function(r, i){
+        var pinned = !!HUNT.pinned[r.name];
+        var pin = '<td><input type="checkbox" class="pin" data-name="'+r.name+'"'+(pinned?" checked":"")+' title="'+pinTitle+'" style="accent-color:var(--accent); cursor:pointer"></td>';
         var cells = tlds.map(function(tl){ return '<td>'+pill(r.avail[tl]||"unknown")+'</td>'; }).join("");
         var g = '<td class="gcount '+gClass(r.web)+'">'+fmtWeb(r.web)+'</td>';
         var sc = '<td><div class="score"><div class="scorebar"><i style="width:'+r.score+'%"></i></div><span class="scoreval">'+r.score+'</span></div></td>';
-        return '<tr class="'+(i===0?"top":"")+'"><td class="name">'+r.name+'</td>'+cells+g+sc+'</tr>';
+        return '<tr class="'+(i===0?"top":"")+(pinned?" pinned":"")+'">'+pin+'<td class="name">'+r.name+'</td>'+cells+g+sc+'</tr>';
       }).join("");
       document.getElementById("results").innerHTML = '<div class="card" style="overflow-x:auto"><table>'+head+rows+'</table></div>';
     }
@@ -422,7 +428,7 @@
       var count = parseInt(document.getElementById("count").value,10) || 8;
       // fresh lov (nebo změna zaměření/TLD) resetuje nasbíraný stav
       if (!append || HUNT.theme !== theme || HUNT.tlds.join(",") !== tlds.join(",")) {
-        HUNT = { theme:theme, tlds:tlds, names:{}, results:[] }; append = false;
+        HUNT = { theme:theme, tlds:tlds, names:{}, pinned:{}, results:[] }; append = false;
       }
       var exclude = Object.keys(HUNT.names);
       var btnG = document.getElementById("go-gen"), btnR = document.getElementById("go-regen");
@@ -436,13 +442,19 @@
           if (d.error) { msg(t("err")+": "+d.error, "err"); return; }
           var fresh = (d.results||[]).filter(function(r){ return !HUNT.names[r.name]; });
           fresh.forEach(function(r){ HUNT.names[r.name] = true; });
-          HUNT.results = HUNT.results.concat(fresh);
+          if (append) {
+            var kept = HUNT.results.filter(function(r){ return HUNT.pinned[r.name]; }); // zachovej zatržené 📌
+            HUNT.results = kept.concat(fresh); // nezatržené se nahradí čerstvými
+          } else {
+            HUNT.results = fresh;
+          }
           HUNT.results.sort(function(a,b){ return b.score - a.score; });
           renderTable(tlds, HUNT.results, true);
           document.getElementById("go-regen").hidden = false;
           var notes = [];
           if (!d.webEnabled) notes.push(t("g_off"));
           if (append) notes.push(fresh.length ? ti("regen_added", {n:fresh.length}) : t("regen_empty"));
+          else notes.push(t("pin_hint"));
           if (d.requested > d.maxNames) notes.push(ti("cap_note", {n:d.maxNames}));
           msg(notes.join(" · "), "info");
         })
@@ -454,6 +466,14 @@
     document.getElementById("go-regen").onclick = function(){ doHunt(true); };
     document.getElementById("only-free").onchange = function(){ if (HUNT.results.length) renderTable(HUNT.tlds, HUNT.results, true); };
     document.getElementById("tlds-gen").addEventListener("change", updateCountHint);
+    // zaškrtnutí 📌 = zachovat název při přegenerování (delegace, přežije re-render)
+    document.getElementById("results").addEventListener("change", function(e){
+      var el = e.target;
+      if (!el || !el.classList || !el.classList.contains("pin")) return;
+      var name = el.getAttribute("data-name");
+      if (el.checked) HUNT.pinned[name] = true; else delete HUNT.pinned[name];
+      var tr = el.closest("tr"); if (tr) tr.classList.toggle("pinned", el.checked);
+    });
 
     document.getElementById("go-check").onclick = function(){
       var name = document.getElementById("name").value.trim();
