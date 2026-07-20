@@ -2,7 +2,7 @@
 
 > Lov volných domén + generátor značkových názvů. Zadáš zaměření → dostaneš názvy s kontrolou dostupnosti domén a stopou na webu.
 
-**🌐 Běží naživo:** <https://domlov.bass443.workers.dev> · **Stav projektu:** [docs/project-status.html](docs/project-status.html)
+**🌐 Běží naživo:** <https://domlov.maxferit.cz> · **Stav projektu:** [docs/project-status.html](docs/project-status.html)
 
 ## Co to dělá
 

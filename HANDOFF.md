@@ -2,6 +2,17 @@
 
 Append-only. Nejnovější záznam nahoru. Slouží k pokračování z jiného počítače / po pauze.
 
+## 2026-07-20 — vlastní doména + favicon + oponenturní docs
+- **Custom domain:** aplikace nově na **https://domlov.maxferit.cz** (Workers Custom Domain na zóně
+  maxferit.cz, stejný účet bass443). Přidáno přes dashboard (Worker → Domains → Add Domain), NE do
+  wrangler.jsonc — aby CI (token jen „Edit Workers") zůstal nedotčený. `bass443.workers.dev` běží dál
+  souběžně (lze později vypnout v Domains). Ověřeno `200`: health `{ok,ai,web:true}`, version 3d61580.
+  URL přepsána v README, project-status, OPONENTURA (workers.dev zůstal jen v historických HANDOFF záznamech).
+- **Favicon:** brandové modré ◎ (inline SVG data-URI v public/index.html) místo defaultního globusu na oušku.
+- **Oponenturní dokumentace:** `docs/OPONENTURA.md` (+ vizuální HTML verze u uživatele v Downloads,
+  `domlov-oponentura.html`, s tiskem/PDF). Po posudku doplněno: testovací přístup (7.2), monitoring (7.3),
+  předávání secretů do CI (6.1), KV vs D1 pro perzistenci (10).
+
 ## 2026-07-20 — CI opraveno + web stopa: Google → Brave Search
 - **CI deploy opraven:** `.github/workflows/deploy.yml` padal ze dvou důvodů →
   (1) Node 20 → **22** (wrangler 4.112 vyžaduje Node ≥22), (2) doplněn GitHub repo secret

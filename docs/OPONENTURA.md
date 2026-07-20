@@ -3,7 +3,7 @@
 > **Projekt:** domlov — lov volných domén + generátor značkových názvů
 > **Autor:** Milan Trnka
 > **Stav:** nasazeno v produkci, ověřeno naživo
-> **Živě:** <https://domlov.bass443.workers.dev> · **Repo:** <https://github.com/Anamax443/domlov> (public)
+> **Živě:** <https://domlov.maxferit.cz> · **Repo:** <https://github.com/Anamax443/domlov> (public)
 > **Dokument aktuální k:** 2026-07-20, commit `1f5574a`
 
 Tento dokument slouží jako podklad k oponentuře: shrnuje zadání, architekturu, **zdůvodnění klíčových
