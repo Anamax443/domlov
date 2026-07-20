@@ -56,6 +56,7 @@ Postup od nuly viz [docs/BUILD.md](docs/BUILD.md).
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — jak je to poskládané
 - [docs/BUILD.md](docs/BUILD.md) — jak postavit od nuly (výrobní, včetně Brave klíče)
+- [docs/OPONENTURA.md](docs/OPONENTURA.md) — obhajobová dokumentace (zadání, rozhodnutí, ověření, limity)
 - [HANDOFF.md](HANDOFF.md) — deník stavu
 
 ## Bezplatné?
