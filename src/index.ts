@@ -1,15 +1,15 @@
 /**
  * domlov — lov volných domén + generátor značkových názvů
- * Cloudflare Worker: RDAP (dostupnost domén) + Workers AI (návrhy názvů) + Google Custom Search (stopa v Googlu).
- * Skóre: volná .com/.cz + minimum Google výsledků = ideál (faxxar-level).
+ * Cloudflare Worker: RDAP (dostupnost domén) + Workers AI (návrhy názvů) + Brave Search (stopa na webu).
+ * Skóre: volná .com/.cz + minimum výskytů jména na webu = ideál (faxxar-level).
+ * Pozn.: Google Custom Search „prohledávej celý web“ Google ruší (mrtvé 1.1.2027) → nahrazeno Brave Search API.
  */
 import version from "./version.json";
 
 export interface Env {
   AI: any;              // Workers AI binding
   ASSETS: Fetcher;      // statický frontend (public/)
-  GOOGLE_API_KEY?: string;
-  GOOGLE_CX?: string;
+  BRAVE_API_KEY?: string; // Brave Search API token (volitelný — bez něj se stopa na webu nepočítá)
 }
 
 // Váha TLD ve skóre — .com a .cz jsou pro Milana klíčové.
@@ -34,6 +34,10 @@ const RDAP_UA = "domlov/0.1 domain-availability-checker";
 // Workers AI model pro generování názvů (aktuální; starší llama-3.1-8b byl deprecated 2026-05).
 const AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
+// Web stopa (Brave Search): kolik top výsledků vzorkujeme a od kolika shod považujeme jméno za „obsazené“.
+const WEB_SAMPLE = 20;  // count dotazu na Brave (1 dotaz = 1 request bez ohledu na count)
+const WEB_HEAVY = 12;   // 12+ shod jména v top výsledcích → webScore = 0 (běžné slovo / existující značka)
+
 type Avail = "free" | "taken" | "unknown";
 
 export default {
@@ -43,7 +47,7 @@ export default {
     try {
       if (p === "/api/version") return json(version);
       if (p === "/api/health") {
-        return json({ ok: true, ai: true, google: hasGoogle(env) });
+        return json({ ok: true, ai: true, web: hasWeb(env) });
       }
       if (p === "/api/hunt" && request.method === "POST") return await handleHunt(request, env);
       if (p === "/api/check" && request.method === "POST") return await handleCheck(request, env);
@@ -63,7 +67,7 @@ async function handleHunt(request: Request, env: Env): Promise<Response> {
   if (!theme) return json({ error: "Chybí zaměření (theme)." }, 400);
 
   let tlds = sanitizeTlds(body.tlds, DEFAULT_TLDS);
-  // Ochrana proti limitu subrequestů (Free plan ~50): names * (tlds + 1 google) <= 45
+  // Ochrana proti limitu subrequestů (Free plan ~50): names * (tlds + 1 web) <= 45
   const maxNames = Math.max(1, Math.floor(45 / (tlds.length + 1)));
   let count = clamp(Number(body.count) || 8, 1, Math.min(12, maxNames));
 
@@ -71,7 +75,7 @@ async function handleHunt(request: Request, env: Env): Promise<Response> {
   const results = await Promise.all(names.map((name) => evaluate(name, tlds, env)));
   results.sort((a, b) => b.score - a.score);
 
-  return json({ theme, tlds, googleEnabled: hasGoogle(env), results });
+  return json({ theme, tlds, webEnabled: hasWeb(env), results });
 }
 
 async function handleCheck(request: Request, env: Env): Promise<Response> {
@@ -80,7 +84,7 @@ async function handleCheck(request: Request, env: Env): Promise<Response> {
   if (!name) return json({ error: "Neplatný název." }, 400);
   const tlds = sanitizeTlds(body.tlds, CHECK_TLDS);
   const res = await evaluate(name, tlds, env);
-  return json({ googleEnabled: hasGoogle(env), result: res });
+  return json({ webEnabled: hasWeb(env), result: res });
 }
 
 /* ----------------------------- Jádro ----------------------------- */
@@ -92,9 +96,9 @@ async function evaluate(name: string, tlds: string[], env: Env) {
       avail[t] = await checkDomain(name, t);
     })
   );
-  const google = await googleCount(name, env);
-  const scored = scoreName(avail, tlds, google);
-  return { name, avail, google, ...scored };
+  const web = await webFootprint(name, env);
+  const scored = scoreName(avail, tlds, web);
+  return { name, avail, web, ...scored };
 }
 
 /** RDAP: 404 = volná, 200 = zabraná. Retry 1× na 429/5xx/síťovou chybu. */
@@ -119,21 +123,38 @@ async function checkDomain(name: string, tld: string): Promise<Avail> {
   return "unknown";
 }
 
-/** Google Custom Search — odhad počtu výsledků (searchInformation.totalResults). */
-async function googleCount(query: string, env: Env): Promise<number | null> {
-  if (!hasGoogle(env)) return null;
-  const u = new URL("https://www.googleapis.com/customsearch/v1");
-  u.searchParams.set("key", env.GOOGLE_API_KEY!);
-  u.searchParams.set("cx", env.GOOGLE_CX!);
-  u.searchParams.set("q", `"${query}"`); // přesná fráze = reálná stopa značky
-  u.searchParams.set("num", "1");
-  u.searchParams.set("fields", "searchInformation/totalResults");
+/**
+ * Brave Search — stopa značky na webu. Brave nevrací celkový počet výsledků,
+ * tak měříme sílu stopy: kolik z top výsledků reálně obsahuje dané jméno jako slovo.
+ * Vymyšlené unikátní jméno → ~0 shod (čisté), běžné slovo/značka → hodně shod. Méně = líp.
+ * Vrací 0..WEB_SAMPLE, nebo null když klíč chybí / dotaz selže (graceful).
+ */
+async function webFootprint(query: string, env: Env): Promise<number | null> {
+  if (!hasWeb(env)) return null;
+  const u = new URL("https://api.search.brave.com/res/v1/web/search");
+  u.searchParams.set("q", query);
+  u.searchParams.set("count", String(WEB_SAMPLE));
+  u.searchParams.set("safesearch", "off");
   try {
-    const r = await fetch(u.toString(), { cf: { cacheTtl: 3600, cacheEverything: true } as any });
-    if (!r.ok) return null;
+    const r = await fetch(u.toString(), {
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": env.BRAVE_API_KEY!,
+      },
+      cf: { cacheTtl: 3600, cacheEverything: true } as any,
+    });
+    if (!r.ok) return null; // 429 (rate limit) / 401 apod. → stopa neznámá, appka běží dál
     const data: any = await r.json();
-    const total = data?.searchInformation?.totalResults;
-    return total != null ? Number(total) : null;
+    const results: any[] = Array.isArray(data?.web?.results) ? data.web.results : [];
+    if (!results.length) return 0;
+    const re = new RegExp("\\b" + escapeRegex(query) + "\\b", "i");
+    let hits = 0;
+    for (const it of results) {
+      const hay = `${it?.title ?? ""} ${it?.description ?? ""} ${it?.url ?? ""}`;
+      if (re.test(hay)) hits++;
+    }
+    return hits;
   } catch {
     return null;
   }
@@ -183,7 +204,7 @@ async function generateNames(theme: string, count: number, env: Env): Promise<st
 
 /* ----------------------------- Skóre ----------------------------- */
 
-function scoreName(avail: Record<string, Avail>, tlds: string[], google: number | null) {
+function scoreName(avail: Record<string, Avail>, tlds: string[], web: number | null) {
   let got = 0;
   let max = 0;
   for (const t of tlds) {
@@ -193,24 +214,28 @@ function scoreName(avail: Record<string, Avail>, tlds: string[], google: number 
   }
   const domainScore = max ? got / max : 0; // 0..1
 
-  // Google: méně = líp. 0 výsledků -> 1.0, ~10^8 -> 0. Log škála.
-  let googleScore: number | null = null;
-  if (google != null) {
-    googleScore = clamp(1 - Math.log10(google + 1) / 8, 0, 1);
+  // Web stopa: méně výskytů jména v top výsledcích = čistší značka. 0 shod -> 1.0, WEB_HEAVY+ shod -> 0.
+  let webScore: number | null = null;
+  if (web != null) {
+    webScore = clamp(1 - web / WEB_HEAVY, 0, 1);
   }
 
   const score =
-    googleScore == null
+    webScore == null
       ? Math.round(domainScore * 100)
-      : Math.round((0.55 * domainScore + 0.45 * googleScore) * 100);
+      : Math.round((0.55 * domainScore + 0.45 * webScore) * 100);
 
-  return { domainScore: round2(domainScore), googleScore: googleScore == null ? null : round2(googleScore), score };
+  return { domainScore: round2(domainScore), webScore: webScore == null ? null : round2(webScore), score };
 }
 
 /* ----------------------------- Helpery ----------------------------- */
 
-function hasGoogle(env: Env): boolean {
-  return !!(env.GOOGLE_API_KEY && env.GOOGLE_CX);
+function hasWeb(env: Env): boolean {
+  return !!env.BRAVE_API_KEY;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function sanitizeTlds(input: any, fallback: string[]): string[] {

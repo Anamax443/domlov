@@ -18,27 +18,28 @@ npm install
 
 ## 3. Konfigurace a secrety
 
-Appka běží i **bez** klíčů — jen bez sloupce „Google“ (skóre je pak jen podle domén).
-Pro počty výsledků v Googlu potřebuješ dvě hodnoty:
+Appka běží i **bez** klíče — jen bez sloupce „Web“ (skóre je pak jen podle domén).
+Stopa na webu (kolik top výsledků obsahuje dané jméno) jede přes **Brave Search API** — potřebuješ jednu hodnotu.
 
-### 3a. Google API klíč (zdarma)
-1. https://console.cloud.google.com → nový projekt (nebo existující).
-2. **APIs & Services → Library → „Custom Search API“ → Enable.**
-3. **APIs & Services → Credentials → Create credentials → API key.** Zkopíruj klíč → `GOOGLE_API_KEY`.
+> **Proč Brave a ne Google?** Google ruší u Custom Search „prohledávat celý web“
+> (u nových vyhledávačů už nejde zapnout, úplný konec 1. 1. 2027), takže na měření
+> webové stopy se nedá spolehnout. Brave Search API je nezávislá náhrada.
 
-### 3b. Programmable Search Engine (CX)
-1. https://programmablesearchengine.google.com → **Add** (nový vyhledávač).
-2. Zvol **„Search the entire web“** (prohledávat celý web).
-3. Po vytvoření otevři **Overview** → zkopíruj **Search engine ID** → `GOOGLE_CX`.
+### 3a. Brave Search API klíč
+1. https://api-dashboard.search.brave.com → registrace / přihlášení.
+2. Vyber plán (free kredit ~$5/měsíc ≈ 1000 dotazů; může chtít kartu) a vytvoř **API key**.
+3. Zkopíruj token → `BRAVE_API_KEY`.
 
-### 3c. Lokálně
+### 3b. Lokálně
 ```bash
 cp .dev.vars.example .dev.vars   # (Windows: copy)
-# vyplň GOOGLE_API_KEY a GOOGLE_CX
+# vyplň BRAVE_API_KEY
 ```
 `.dev.vars` je v `.gitignore` — nikdy se necommitne.
 
-> **Limit:** Google CSE free tier = **100 dotazů/den**. Každý zkontrolovaný název = 1 dotaz.
+> **Limit/cena:** Brave zrušil čistě free tarif (únor 2026) → metered, ~$5 kreditu/měsíc zdarma
+> (≈ 1000 dotazů), pak ~$5/1000. Každý zkontrolovaný název = 1 dotaz (1 hunt 8 jmen = 8 dotazů).
+> Limit 50 req/s. Když dotaz selže (429/klíč chybí), stopa je „–“ a appka běží dál.
 
 ## 4. Build
 Bundluje a typuje Wrangler (esbuild) automaticky. Ověření bez nasazení:
@@ -56,17 +57,16 @@ npm run dev        # orazítkuje src/version.json + spustí wrangler dev
 
 ## 6. Nasazení do produkce
 ```bash
-# volitelně produkční secrety pro Google (jinak appka běží bez Google sloupce):
-npx wrangler secret put GOOGLE_API_KEY
-npx wrangler secret put GOOGLE_CX
+# volitelně produkční secret pro stopu na webu (jinak appka běží bez sloupce Web):
+npx wrangler secret put BRAVE_API_KEY
 
 npm run deploy     # orazítkuje verzi + wrangler deploy
 ```
 - **Cíl:** Cloudflare Workers (účet dle `wrangler whoami`).
-- **Ověření běhu:** otevři URL Workeru → v hlavičce svítí health tečky (Backend/AI/Google),
+- **Ověření běhu:** otevři URL Workeru → v hlavičce svítí health tečky (Backend/AI/Web),
   commit hash sedí s `git rev-parse --short HEAD`, hodiny tikají.
 - **Automaticky:** push na `main` spouští `.github/workflows/deploy.yml` (potřebuje GitHub secret
-  `CLOUDFLARE_API_TOKEN` s právem „Edit Workers“; secrety Google se nastavují přes `wrangler secret`, ne v Action).
+  `CLOUDFLARE_API_TOKEN` s právem „Edit Workers“; secret `BRAVE_API_KEY` se nastavuje přes `wrangler secret`, ne v Action).
 
 ## 7. Certifikáty / přístupy / práva
 - **Cloudflare API token** (pro GitHub Action): Dashboard → My Profile → API Tokens → *Edit Cloudflare Workers*.

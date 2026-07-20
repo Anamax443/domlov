@@ -1,6 +1,5 @@
-# Zkopíruj na `.dev.vars` a vyplň reálnými hodnotami (soubor .dev.vars je v .gitignore).
-# Návod na získání klíčů: docs/BUILD.md (Google Programmable Search Engine).
-# Bez těchto hodnot appka funguje taky — jen se nepočítá stopa v Googlu.
+# Zkopíruj na `.dev.vars` a vyplň reálnou hodnotou (soubor .dev.vars je v .gitignore).
+# Návod na získání klíče: docs/BUILD.md (Brave Search API).
+# Bez této hodnoty appka funguje taky — jen se nepočítá stopa na webu.
 
-GOOGLE_API_KEY=zde-tvuj-google-api-klic
-GOOGLE_CX=zde-tvuj-search-engine-id
+BRAVE_API_KEY=zde-tvuj-brave-search-api-token

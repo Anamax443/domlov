@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>domlov — lov volných domén</title>
-  <meta name="description" content="Generátor značkových názvů + kontrola dostupnosti domén (.com/.cz…) a stopy v Googlu." />
+  <meta name="description" content="Generátor značkových názvů + kontrola dostupnosti domén (.com/.cz…) a stopy na webu." />
   <!-- téma před renderem (bez FOUC) -->
   <script>
     (function () {
@@ -150,7 +150,7 @@
       <div class="health">
         <span title="Backend"><i id="h-backend" class="dot idle"></i> Backend</span>
         <span title="Workers AI"><i id="h-ai" class="dot idle"></i> AI</span>
-        <span title="Google Custom Search"><i id="h-google" class="dot idle"></i> Google</span>
+        <span title="Brave Search — stopa na webu"><i id="h-web" class="dot idle"></i> Web</span>
       </div>
       <span class="commit mono" id="commit" title="">·</span>
       <span class="clock mono" id="clock">–</span>
@@ -164,8 +164,8 @@
   <main>
     <h1 data-i18n="h1">Najdi volný název i doménu</h1>
     <p class="lead" data-i18n="lead">
-      Zadej zaměření → vygeneruju značkové názvy a u každého zkontroluju volné domény a stopu v Googlu.
-      Ideál = volná <b>.com</b>/<b>.cz</b> + minimum výsledků v Googlu (jako „faxxar“).
+      Zadej zaměření → vygeneruju značkové názvy a u každého zkontroluju volné domény a stopu na webu.
+      Ideál = volná <b>.com</b>/<b>.cz</b> + minimum výskytů na webu (jako „faxxar“).
     </p>
 
     <div class="tabs">
@@ -218,28 +218,28 @@
           <ul>
             <li data-i18n="doc_how1"><b>Názvy</b> generuje Cloudflare Workers AI (Llama) podle tvého zaměření.</li>
             <li data-i18n="doc_how2"><b>Dostupnost domén</b> se zjišťuje přes RDAP (404 = volná, 200 = zabraná). Autoritativně pro .com/.cz/.net.</li>
-            <li data-i18n="doc_how3"><b>Stopa v Googlu</b> = počet výsledků z Google Custom Search. Méně = čistší značka.</li>
+            <li data-i18n="doc_how3"><b>Stopa na webu</b> = kolik z top výsledků Brave Search obsahuje to jméno. Méně = čistší značka.</li>
           </ul>
         </details>
         <details class="doc">
           <summary data-i18n="doc_score">Jak se počítá skóre</summary>
           <ul>
             <li data-i18n="doc_score1">55 % = dostupnost domén (.com a .cz mají největší váhu).</li>
-            <li data-i18n="doc_score2">45 % = nízká stopa v Googlu (log škála: 0 výsledků = plný bod).</li>
+            <li data-i18n="doc_score2">45 % = nízká stopa na webu (0 výskytů = plný bod).</li>
             <li data-i18n="doc_score3">★ = nejlepší kandidát v seznamu.</li>
           </ul>
         </details>
         <details class="doc">
-          <summary data-i18n="doc_google">Google počty nefungují?</summary>
+          <summary data-i18n="doc_google">Web stopa nefunguje?</summary>
           <ul>
-            <li data-i18n="doc_google1">Bez klíče appka běží dál — jen bez sloupce Google.</li>
-            <li data-i18n="doc_google2">Zapnutí: Google Programmable Search Engine + API klíč (free 100 dotazů/den). Postup v docs/BUILD.md.</li>
+            <li data-i18n="doc_google1">Bez klíče appka běží dál — jen bez sloupce Web (skóre je pak jen podle domén).</li>
+            <li data-i18n="doc_google2">Zapnutí: Brave Search API klíč jako secret <code>BRAVE_API_KEY</code>. Postup v docs/BUILD.md.</li>
           </ul>
         </details>
         <details class="doc">
           <summary data-i18n="doc_free">Bezplatné?</summary>
           <ul>
-            <li data-i18n="doc_free1">Cloudflare Worker + Workers AI = free tier. RDAP = zdarma. Google CSE = 100 dotazů/den zdarma.</li>
+            <li data-i18n="doc_free1">Cloudflare Worker + Workers AI = free tier. RDAP = zdarma. Brave Search = ~1000 dotazů/měsíc v rámci free kreditu.</li>
           </ul>
         </details>
       </div>
@@ -256,27 +256,27 @@
     var I18N = {
       cs: {
         tagline:"lov volných domén", h1:"Najdi volný název i doménu",
-        lead:"Zadej zaměření → vygeneruju značkové názvy a u každého zkontroluju volné domény a stopu v Googlu. Ideál = volná .com/.cz + minimum výsledků v Googlu (jako „faxxar“).",
+        lead:"Zadej zaměření → vygeneruju značkové názvy a u každého zkontroluju volné domény a stopu na webu. Ideál = volná .com/.cz + minimum výskytů na webu (jako „faxxar“).",
         tab_gen:"Generátor", tab_check:"Rychlá kontrola", tab_doc:"Dokumentace",
         f_theme:"Zaměření / téma (klidně česky)", f_count:"Počet návrhů", f_tlds:"Domény ke kontrole",
         f_name:"Konkrétní název", btn_hunt:"Lovit názvy", btn_check:"Zkontrolovat",
-        th_name:"Název", th_google:"Google", th_score:"Skóre",
-        doc_how:"Jak to funguje", doc_score:"Jak se počítá skóre", doc_google:"Google počty nefungují?", doc_free:"Bezplatné?",
+        th_name:"Název", th_google:"Web", th_score:"Skóre",
+        doc_how:"Jak to funguje", doc_score:"Jak se počítá skóre", doc_google:"Web stopa nefunguje?", doc_free:"Bezplatné?",
         loading:"Pracuju…", err:"Chyba", empty:"Nic se nevygenerovalo, zkus jiné zaměření.",
         need_theme:"Zadej zaměření.", need_name:"Zadej název.",
-        g_off:"Google počty jsou vypnuté (chybí klíč) — skóre je jen podle domén. Zapnutí viz Dokumentace."
+        g_off:"Web stopa je vypnutá (chybí Brave klíč) — skóre je jen podle domén. Zapnutí viz Dokumentace."
       },
       en: {
         tagline:"free-domain hunting", h1:"Find a free name and domain",
-        lead:"Enter a focus → I generate brandable names and check free domains + Google footprint for each. Ideal = free .com/.cz + minimal Google results (like “faxxar”).",
+        lead:"Enter a focus → I generate brandable names and check free domains + web footprint for each. Ideal = free .com/.cz + minimal web presence (like “faxxar”).",
         tab_gen:"Generator", tab_check:"Quick check", tab_doc:"Docs",
         f_theme:"Focus / theme (Czech is fine)", f_count:"How many", f_tlds:"Domains to check",
         f_name:"Specific name", btn_hunt:"Hunt names", btn_check:"Check",
-        th_name:"Name", th_google:"Google", th_score:"Score",
-        doc_how:"How it works", doc_score:"How the score works", doc_google:"Google counts not working?", doc_free:"Free?",
+        th_name:"Name", th_google:"Web", th_score:"Score",
+        doc_how:"How it works", doc_score:"How the score works", doc_google:"Web footprint not working?", doc_free:"Free?",
         loading:"Working…", err:"Error", empty:"Nothing generated, try another focus.",
         need_theme:"Enter a focus.", need_name:"Enter a name.",
-        g_off:"Google counts are off (no key) — score is domain-only. See Docs to enable."
+        g_off:"Web footprint is off (no Brave key) — score is domain-only. See Docs to enable."
       }
     };
     var lang = (localStorage.getItem("axima.lang") || "cs");
@@ -342,19 +342,18 @@
     fetch("/api/health").then(function(r){ return r.json(); }).then(function(h){
       setDot("h-backend", h.ok ? "on":"off");
       setDot("h-ai", h.ai ? "on":"idle");
-      setDot("h-google", h.google ? "on":"idle");
-      window.__googleOn = !!h.google;
+      setDot("h-web", h.web ? "on":"idle");
+      window.__webOn = !!h.web;
     }).catch(function(){ setDot("h-backend","off"); });
 
     /* ===================== formátování ===================== */
-    function fmtCount(n){
+    // Web stopa = počet top výsledků (z ~20) obsahujících dané jméno. Méně = čistší značka.
+    function fmtWeb(n){
       if (n == null) return "–";
-      if (n < 1000) return "≈"+n;
-      if (n < 1e6) return "≈"+(n/1e3).toFixed(n<1e4?1:0)+"k";
-      if (n < 1e9) return "≈"+(n/1e6).toFixed(1)+"M";
-      return "≈"+(n/1e9).toFixed(1)+"B";
+      if (n === 0) return "0";
+      return n + "×";
     }
-    function gClass(n){ if (n==null) return ""; if (n<2000) return "low"; if (n<200000) return "mid"; return "high"; }
+    function gClass(n){ if (n==null) return ""; if (n<=1) return "low"; if (n<=4) return "mid"; return "high"; }
     function pill(state){
       var lbl = state==="free" ? (lang==="cs"?"volná":"free") : state==="taken" ? (lang==="cs"?"zabraná":"taken") : "?";
       return '<span class="pill '+state+'">'+lbl+'</span>';
@@ -366,10 +365,10 @@
       if (!results.length) { document.getElementById("results").innerHTML = '<p class="muted">'+t("empty")+'</p>'; return; }
       var head = '<tr><th>'+t("th_name")+'</th>' +
         tlds.map(function(tl){ return '<th>.'+tl+'</th>'; }).join("") +
-        '<th>'+t("th_google")+'</th><th>'+t("th_score")+'</th></tr>';
+        '<th title="'+(lang==="cs"?"Kolik z top výsledků obsahuje jméno (méně = líp)":"How many top results contain the name (fewer = better)")+'">'+t("th_google")+'</th><th>'+t("th_score")+'</th></tr>';
       var rows = results.map(function(r, i){
         var cells = tlds.map(function(tl){ return '<td>'+pill(r.avail[tl]||"unknown")+'</td>'; }).join("");
-        var g = '<td class="gcount '+gClass(r.google)+'">'+fmtCount(r.google)+'</td>';
+        var g = '<td class="gcount '+gClass(r.web)+'">'+fmtWeb(r.web)+'</td>';
         var sc = '<td><div class="score"><div class="scorebar"><i style="width:'+r.score+'%"></i></div><span class="scoreval">'+r.score+'</span></div></td>';
         return '<tr class="'+(i===0?"top":"")+'"><td class="name">'+r.name+'</td>'+cells+g+sc+'</tr>';
       }).join("");
@@ -392,7 +391,7 @@
         .then(function(r){ return r.json(); })
         .then(function(d){
           if (d.error) { msg(t("err")+": "+d.error, "err"); return; }
-          msg(d.googleEnabled ? "" : t("g_off"), "info");
+          msg(d.webEnabled ? "" : t("g_off"), "info");
           renderTable(d.tlds, d.results);
         })
         .catch(function(e){ msg(t("err")+": "+e, "err"); })
@@ -411,7 +410,7 @@
         .then(function(r){ return r.json(); })
         .then(function(d){
           if (d.error) { msg(t("err")+": "+d.error, "err"); return; }
-          msg(d.googleEnabled ? "" : t("g_off"), "info");
+          msg(d.webEnabled ? "" : t("g_off"), "info");
           renderTable(tlds, [d.result]);
         })
         .catch(function(e){ msg(t("err")+": "+e, "err"); })

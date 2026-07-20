@@ -15,7 +15,7 @@
   "observability": {
     "enabled": true
   }
-  // Secrety (NEJSOU v repu): GOOGLE_API_KEY, GOOGLE_CX
+  // Secret (NENÍ v repu): BRAVE_API_KEY  (Brave Search — stopa na webu; volitelný)
   //   lokálně:  .dev.vars   (viz .dev.vars.example)
-  //   produkce: npx wrangler secret put GOOGLE_API_KEY  /  GOOGLE_CX
+  //   produkce: npx wrangler secret put BRAVE_API_KEY
 }

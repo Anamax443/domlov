@@ -2,6 +2,24 @@
 
 Append-only. Nejnovější záznam nahoru. Slouží k pokračování z jiného počítače / po pauze.
 
+## 2026-07-20 — CI opraveno + web stopa: Google → Brave Search
+- **CI deploy opraven:** `.github/workflows/deploy.yml` padal ze dvou důvodů →
+  (1) Node 20 → **22** (wrangler 4.112 vyžaduje Node ≥22), (2) doplněn GitHub repo secret
+  `CLOUDFLARE_API_TOKEN` (Edit Workers, účet bass443). Od teď push na `main` = auto-deploy zeleně.
+- **Web stopa přepsána z Google Custom Search na Brave Search API.** Důvod: Google ruší
+  „prohledávat celý web“ — u nově vytvořených CSE už nejde zapnout, úplný konec **1. 1. 2027**.
+  Stavět na tom nemá smysl. Ověřeno živě (přepínač „Vyhledávat na celém internetu“ = „funkce ukončena“).
+  - Nový secret **`BRAVE_API_KEY`** (místo `GOOGLE_API_KEY` + `GOOGLE_CX`). `hasWeb()` = jen tento klíč.
+  - Metrika: Brave nevrací celkový počet výsledků → `webFootprint()` počítá, kolik z top ~20 výsledků
+    obsahuje jméno jako slovo (0 = čisté, 12+ = běžné slovo → `webScore` 0). Endpoint
+    `api.search.brave.com/res/v1/web/search`, hlavička `X-Subscription-Token`, limit 50 req/s.
+  - Přejmenováno napříč: API `web`/`webEnabled` (dřív `google`/`googleEnabled`), health `{ok,ai,web}`,
+    frontend sloupec **Web**, health tečka **Web**, i18n + docs (README/ARCHITECTURE/BUILD/status page).
+  - **Cena/limit Brave:** metered (od 02/2026 zrušen čistě free tarif) → ~$5 kreditu/měsíc zdarma
+    (≈1000 dotazů), pak ~$5/1000. Bez klíče appka jede dál, skóre jen z domén.
+- **Zbývá (volitelné):** nastavit `BRAVE_API_KEY` přes `wrangler secret put BRAVE_API_KEY` → zapne sloupec Web.
+  (Nepoužitý Google CSE vyhledávač `b3c06bf316d1345f6` lze v Google účtu smazat.)
+
 ## 2026-07-18 — dokumentace + status page
 - Přidán **docs/project-status.html** (manažerská vrstva dle standardu: stav, milníky, stack, náklady;
   AXIMA styl, dark/light + tisk v light, CZ/EN).

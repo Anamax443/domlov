@@ -109,7 +109,7 @@
         <li><span class="what" data-i18n="ms4">Test lokálně i v produkci (RDAP 7 TLD, AI generátor, skóre)</span><span class="pill done" data-i18n="p_done">Hotovo</span></li>
         <li><span class="what" data-i18n="ms5">Nasazení na Cloudflare Workers (účet bass443)</span><span class="pill done" data-i18n="p_done">Hotovo</span></li>
         <li><span class="what" data-i18n="ms6">Veřejné repo + dokumentace (README, ARCHITECTURE, BUILD, HANDOFF)</span><span class="pill done" data-i18n="p_done">Hotovo</span></li>
-        <li><span class="what" data-i18n="ms7">Google počty výsledků (klíč GOOGLE_API_KEY + GOOGLE_CX)</span><span class="pill opt" data-i18n="p_opt">Volitelné</span></li>
+        <li><span class="what" data-i18n="ms7">Web stopa přes Brave Search (secret BRAVE_API_KEY)</span><span class="pill opt" data-i18n="p_opt">Volitelné</span></li>
       </ul>
     </div>
 
@@ -120,16 +120,16 @@
         <tr><td class="k" data-i18n="s_app">Web app</td><td>Cloudflare Worker (TypeScript)</td><td data-i18n="c_free1">zdarma (100k req/den)</td></tr>
         <tr><td class="k" data-i18n="s_gen">Generátor názvů</td><td class="mono">@cf/meta/llama-3.3-70b-instruct-fp8-fast</td><td data-i18n="c_free2">Workers AI (denní kvóta)</td></tr>
         <tr><td class="k" data-i18n="s_dom">Kontrola domén</td><td>RDAP (Verisign, CZ.NIC, IdentityDigital, rdap.org)</td><td data-i18n="c_free3">zdarma, bez klíče</td></tr>
-        <tr><td class="k" data-i18n="s_goo">Google stopa</td><td>Google Custom Search JSON API</td><td data-i18n="c_free4">zdarma 100/den (volitelné)</td></tr>
+        <tr><td class="k" data-i18n="s_goo">Web stopa</td><td>Brave Search API</td><td data-i18n="c_free4">~$5 kreditu/měsíc (volitelné)</td></tr>
       </table>
     </div>
 
     <h2 data-i18n="h_next">Další kroky</h2>
     <div class="card">
       <p style="margin:0" data-i18n="next1">
-        <b>Google počty výsledků</b> — teď vypnuté, appka skóruje jen podle domén. Zapnutí = 2 hodnoty
-        (<span class="mono">GOOGLE_API_KEY</span> + <span class="mono">GOOGLE_CX</span>) přes <span class="mono">wrangler secret put</span>.
-        Postup krok za krokem: <a href="BUILD.md">docs/BUILD.md</a> (~5 min, free 100 dotazů/den).
+        <b>Web stopa</b> — teď vypnutá, appka skóruje jen podle domén. Zapnutí = 1 hodnota
+        (<span class="mono">BRAVE_API_KEY</span>) přes <span class="mono">wrangler secret put</span>.
+        Postup krok za krokem: <a href="BUILD.md">docs/BUILD.md</a> (Brave Search API, ~$5 kreditu/měsíc zdarma).
       </p>
     </div>
 
@@ -142,13 +142,13 @@
     </div>
   </main>
 
-  <footer class="foot">© 2026 Milan Trnka · domlov · <span data-i18n="f_gen">stav k</span> 2026-07-18</footer>
+  <footer class="foot">© 2026 Milan Trnka · domlov · <span data-i18n="f_gen">stav k</span> 2026-07-20</footer>
 
   <script>
     var I18N = {
       cs: {
         sub:"stav projektu", h1:"domlov — stav projektu",
-        lead:"Lov volných domén + generátor značkových názvů. Zadáš zaměření → appka vygeneruje značkové názvy a u každého zkontroluje volné domény (RDAP) a stopu v Googlu. Ideál = volná .com/.cz + minimum výsledků v Googlu.",
+        lead:"Lov volných domén + generátor značkových názvů. Zadáš zaměření → appka vygeneruje značkové názvy a u každého zkontroluje volné domény (RDAP) a stopu na webu (Brave Search). Ideál = volná .com/.cz + minimum výskytů na webu.",
         b_status:"Nasazeno naživo", b_public:"(public)", b_cost:"Provoz zdarma (free tiery)",
         h_ms:"Milníky", p_done:"Hotovo", p_opt:"Volitelné",
         ms1:"Scaffold podle project-standardu (new-project.ps1)",
@@ -157,17 +157,17 @@
         ms4:"Test lokálně i v produkci (RDAP 7 TLD, AI generátor, skóre)",
         ms5:"Nasazení na Cloudflare Workers (účet bass443)",
         ms6:"Veřejné repo + dokumentace (README, ARCHITECTURE, BUILD, HANDOFF)",
-        ms7:"Google počty výsledků (klíč GOOGLE_API_KEY + GOOGLE_CX)",
+        ms7:"Web stopa přes Brave Search (secret BRAVE_API_KEY)",
         h_stack:"Stack", t_part:"Část", t_tech:"Technologie", t_cost:"Cena",
-        s_app:"Web app", s_gen:"Generátor názvů", s_dom:"Kontrola domén", s_goo:"Google stopa",
-        c_free1:"zdarma (100k req/den)", c_free2:"Workers AI (denní kvóta)", c_free3:"zdarma, bez klíče", c_free4:"zdarma 100/den (volitelné)",
+        s_app:"Web app", s_gen:"Generátor názvů", s_dom:"Kontrola domén", s_goo:"Web stopa",
+        c_free1:"zdarma (100k req/den)", c_free2:"Workers AI (denní kvóta)", c_free3:"zdarma, bez klíče", c_free4:"~$5 kreditu/měsíc (volitelné)",
         h_next:"Další kroky",
-        next1:"Google počty výsledků — teď vypnuté, appka skóruje jen podle domén. Zapnutí = 2 hodnoty (GOOGLE_API_KEY + GOOGLE_CX) přes wrangler secret put. Postup krok za krokem: docs/BUILD.md (~5 min, free 100 dotazů/den).",
+        next1:"Web stopa — teď vypnutá, appka skóruje jen podle domén. Zapnutí = 1 hodnota (BRAVE_API_KEY) přes wrangler secret put. Postup krok za krokem: docs/BUILD.md (Brave Search API, ~$5 kreditu/měsíc zdarma).",
         h_docs:"Dokumentace", f_gen:"stav k"
       },
       en: {
         sub:"project status", h1:"domlov — project status",
-        lead:"Free-domain hunting + brandable name generator. Enter a focus → the app generates brandable names and checks free domains (RDAP) and Google footprint for each. Ideal = free .com/.cz + minimal Google results.",
+        lead:"Free-domain hunting + brandable name generator. Enter a focus → the app generates brandable names and checks free domains (RDAP) and web footprint (Brave Search) for each. Ideal = free .com/.cz + minimal web presence.",
         b_status:"Live in production", b_public:"(public)", b_cost:"Runs for free (free tiers)",
         h_ms:"Milestones", p_done:"Done", p_opt:"Optional",
         ms1:"Scaffold from project-standard (new-project.ps1)",
@@ -176,12 +176,12 @@
         ms4:"Tested locally and in production (RDAP 7 TLDs, AI generator, scoring)",
         ms5:"Deployed to Cloudflare Workers (bass443 account)",
         ms6:"Public repo + docs (README, ARCHITECTURE, BUILD, HANDOFF)",
-        ms7:"Google result counts (GOOGLE_API_KEY + GOOGLE_CX)",
+        ms7:"Web footprint via Brave Search (secret BRAVE_API_KEY)",
         h_stack:"Stack", t_part:"Part", t_tech:"Technology", t_cost:"Cost",
-        s_app:"Web app", s_gen:"Name generator", s_dom:"Domain check", s_goo:"Google footprint",
-        c_free1:"free (100k req/day)", c_free2:"Workers AI (daily quota)", c_free3:"free, no key", c_free4:"free 100/day (optional)",
+        s_app:"Web app", s_gen:"Name generator", s_dom:"Domain check", s_goo:"Web footprint",
+        c_free1:"free (100k req/day)", c_free2:"Workers AI (daily quota)", c_free3:"free, no key", c_free4:"~$5 credit/month (optional)",
         h_next:"Next steps",
-        next1:"Google result counts — currently off, the app scores by domains only. To enable = 2 values (GOOGLE_API_KEY + GOOGLE_CX) via wrangler secret put. Step by step: docs/BUILD.md (~5 min, free 100 queries/day).",
+        next1:"Web footprint — currently off, the app scores by domains only. To enable = 1 value (BRAVE_API_KEY) via wrangler secret put. Step by step: docs/BUILD.md (Brave Search API, ~$5 credit/month free).",
         h_docs:"Documentation", f_gen:"status as of"
       }
     };

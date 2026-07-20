@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Lov volných domén + generátor značkových názvů (RDAP + Workers AI + Google Custom Search).",
+  "description": "Lov volných domén + generátor značkových názvů (RDAP + Workers AI + Brave Search).",
   "scripts": {
     "stamp": "node scripts/stamp-version.mjs",
     "dev": "npm run stamp && wrangler dev",
