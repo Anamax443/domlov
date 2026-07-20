@@ -140,29 +140,33 @@ async function webFootprint(query: string, env: Env): Promise<number | null> {
   u.searchParams.set("q", query);
   u.searchParams.set("count", String(WEB_SAMPLE));
   u.searchParams.set("safesearch", "off");
-  try {
-    const r = await fetch(u.toString(), {
-      headers: {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip",
-        "X-Subscription-Token": env.BRAVE_API_KEY!,
-      },
-      cf: { cacheTtl: 3600, cacheEverything: true } as any,
-    });
-    if (!r.ok) return null; // 429 (rate limit) / 401 apod. → stopa neznámá, appka běží dál
-    const data: any = await r.json();
-    const results: any[] = Array.isArray(data?.web?.results) ? data.web.results : [];
-    if (!results.length) return 0;
-    const re = new RegExp("\\b" + escapeRegex(query) + "\\b", "i");
-    let hits = 0;
-    for (const it of results) {
-      const hay = `${it?.title ?? ""} ${it?.description ?? ""} ${it?.url ?? ""}`;
-      if (re.test(hay)) hits++;
+  const headers = {
+    Accept: "application/json",
+    "Accept-Encoding": "gzip",
+    "X-Subscription-Token": env.BRAVE_API_KEY!,
+  };
+  // 1× retry na 429/5xx/síťovou chybu — při huntu jde víc Brave dotazů naráz a burst občas dostane 429.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(u.toString(), { headers, cf: { cacheTtl: 3600, cacheEverything: true } as any });
+      if (attempt === 0 && (r.status === 429 || r.status >= 500)) continue; // transientní → zkus znovu
+      if (!r.ok) return null; // 401/jiné → stopa neznámá, appka běží dál
+      const data: any = await r.json();
+      const results: any[] = Array.isArray(data?.web?.results) ? data.web.results : [];
+      if (!results.length) return 0;
+      const re = new RegExp("\\b" + escapeRegex(query) + "\\b", "i");
+      let hits = 0;
+      for (const it of results) {
+        const hay = `${it?.title ?? ""} ${it?.description ?? ""} ${it?.url ?? ""}`;
+        if (re.test(hay)) hits++;
+      }
+      return hits;
+    } catch {
+      if (attempt === 0) continue;
+      return null;
     }
-    return hits;
-  } catch {
-    return null;
   }
+  return null;
 }
 
 /** Generátor názvů přes Workers AI (Llama). Vrací normalizovaná, unikátní jména; vynechává `exclude`. */
