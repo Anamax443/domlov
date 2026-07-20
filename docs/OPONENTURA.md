@@ -182,15 +182,32 @@ Jeden request Workeru smí mít ~50 subrequestů. Hunt proto omezuje počet náz
 - **Public repo:** neobsahuje žádné tajemství — pouze kód a dokumentaci.
 - **Žádná perzistence** → žádná osobní data, žádná databáze k zabezpečení; minimální plocha útoku.
 - **CI/CD:** GitHub Actions (`.github/workflows/deploy.yml`) — push na `main` spustí `wrangler deploy`
-  (Node 22, token z repo secretu). Manuální nasazení: `npm run deploy`. Verze se razítkuje do
-  `/api/version`, takže lze kdykoli ověřit, jaký commit skutečně běží.
+  (Node 22). Manuální nasazení: `npm run deploy`. Verze se razítkuje do `/api/version`, takže lze kdykoli
+  ověřit, jaký commit skutečně běží.
 - **Vstupní validace:** `theme` ořezané na 200 znaků, názvy normalizované na `a–z0–9-` (max 24 znaků),
   TLD sanitizované (jen `a–z`, 2–10 znaků, max 8). Regex pro počítání shod je escapovaný.
 
+### 6.1 Předávání tajemství do CI/CD
+Dvě tajemství, dvě různé cesty — vědomě tak, aby žádné nebylo na více místech, než musí:
+
+- **`CLOUDFLARE_API_TOKEN`** (nasazení) = **GitHub repo secret** (Settings → Secrets → Actions). Do workflow se
+  injektuje jako proměnná prostředí a `wrangler` ji čte při `deploy`:
+  ```yaml
+  - name: Deploy to Cloudflare Workers
+    run: npx wrangler deploy
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  ```
+  Token má rozsah **pouze „Edit Cloudflare Workers"** (princip nejmenších oprávnění).
+- **`BRAVE_API_KEY`** (web stopa) se do CI **nepředává vůbec.** Je to **Worker secret** nastavený jednou přes
+  `wrangler secret put BRAVE_API_KEY`, uložený šifrovaně na straně Cloudflare, a **přežívá deploy** — CI ho tedy
+  nepotřebuje ani nevidí. Tím je počet míst, kde tajemství existuje, minimální.
+
 ---
 
-## 7. Ověření (verifikace naživo)
+## 7. Ověření, testování a monitoring
 
+### 7.1 Ověření naživo
 Ověřováno proti produkční instanci (`1f5574a`), ne jen jednotkově. Klíčová evidence:
 
 **Health:** `GET /api/health` → `{"ok":true,"ai":true,"web":true}` — všechny tři služby aktivní.
@@ -224,6 +241,29 @@ Všech šest má **stejnou dostupnost domén** — přesto je web stopa rozděli
 
 **Graceful degradace:** před nastavením `BRAVE_API_KEY` vracel `check faxxar` → `web:null`, `webEnabled:false`,
 skóre počítané jen z domén (60). Aplikace tedy funguje i bez volitelné závislosti.
+
+### 7.2 Testovací přístup
+Řešení zatím **nemá automatizovanou unit/integrační sadu** — uvádíme to otevřeně. Ověření dnes stojí na dvou úrovních:
+
+1. **Statické ověření před nasazením** — `wrangler deploy --dry-run` (TypeScript typecheck + esbuild bundle),
+   běží lokálně i v CI. Neprojde-li typování nebo bundle, nasazení se vůbec nespustí.
+2. **End-to-end ověření proti produkci** — reálné dotazy na `/api/health`, `/api/check`, `/api/hunt` (sekce 7.1),
+   včetně rozlišovacích a degradačních scénářů.
+
+**Identifikovaná mezera → další krok:** jednotkové/integrační testy s **Vitest** a mockováním externích závislostí.
+Jádro je na to připravené — čisté funkce bez I/O (`scoreName`, `normalizeName`, `parseNames`, `sanitizeTlds`,
+počítání shod) jsou testovatelné přímo; `fetch`-based funkce (`checkDomain`, `webFootprint`) přes mock `fetch`
+(RDAP `404/200/429`, Brave JSON), AI binding přes stub. Pro běh v prostředí Workeru se nabízí
+`@cloudflare/vitest-pool-workers`. Prioritně: hraniční stavy skóre a mapování RDAP stavů.
+
+### 7.3 Monitoring a logování
+- **Cloudflare Workers Observability zapnutá** (`observability.enabled = true` v `wrangler.jsonc`) → invokace, logy
+  a metriky (latence, chybovost, CPU) přímo v Cloudflare dashboardu (Workers Logs), bez vlastní infrastruktury.
+- **`/api/health`** = rychlá kontrola dostupnosti služeb (AI / web stopa), **`/api/version`** = ověření běžícího commitu.
+- **Chování při chybách:** selhání externích služeb (RDAP → `unknown`, Brave → `null`) se **nepropagují jako 500**,
+  ale degradují výsledek; stavy jsou viditelné v odpovědi API i v logu, aplikace zůstává dostupná.
+- **Rozšíření provozní zralosti (návrh):** Cloudflare **Logpush** do externího úložiště (dlouhodobá retence),
+  alerting na chybovost RDAP/Brave, případně Workers Analytics Engine / Sentry pro agregaci.
 
 ---
 
@@ -265,9 +305,14 @@ Přehled slabin s odůvodněním — oponent je najde, tak jsou uvedeny přímo.
 
 ## 10. Možná rozšíření (budoucí práce)
 
+- **Automatizovaná testovací sada** (Vitest + mockování AI/RDAP/Brave) — viz 7.2.
 - Dostupnost `@handle` na sociálních sítích a v app storech.
 - Napojení na registr ochranných známek (ÚPV/EUIPO) jako varovný příznak.
-- Uživatelské účty + historie a oblíbené názvy (vyžadovalo by perzistenci — např. Cloudflare D1/KV).
+- **Uživatelské účty + historie / oblíbené názvy** — vyžadovalo by perzistenci. Volba úložiště:
+  **KV** pro jednoduché key-value a cache výsledků (eventual consistency, rychlé čtení na edge) vs.
+  **D1** (SQLite) pro relační dotazy nad historií. Cena: obě mají štědrý free tier
+  (KV ~100k čtení/den; D1 ~5 GB + 5 mil. čtení/den) — pro nízký objem této úlohy by **obojí zůstalo zdarma**;
+  rozhodl by dotazovací vzor (klíč→hodnota → KV, filtrování/řazení historie → D1).
 - Přímý odkaz na registraci u registrátora (`.cz` přes akreditované, `.com` přes API).
 - Konfigurovatelné váhy skóre a prahu web stopy z UI.
 
@@ -294,6 +339,16 @@ jsou konstanty na jednom místě v kódu, snadno laditelné.
 
 **Bezpečnost tajemství v public repu?** V repu žádné tajemství není — jen `*.example` vzory; reálné klíče
 jsou Worker/GitHub secrety mimo git (sekce 6).
+
+**Jak je řešeno testování?** Dnes statický typecheck + bundle přes `wrangler --dry-run` (blokuje vadné nasazení)
+a E2E ověření proti produkci (7.1). Automatizovaná Vitest sada s mockováním AI/RDAP/Brave je identifikovaná jako
+další krok (7.2); čistá jádra jsou bez I/O, tedy přímo testovatelná.
+
+**Jak monitorujete provoz?** Zapnutá Cloudflare Workers Observability (logy + metriky v dashboardu),
+`/api/health` a `/api/version` pro rychlou kontrolu; chyby externích služeb degradují výsledek, ne aplikaci (7.3).
+
+**Jak se tajemství dostane do CI?** `CLOUDFLARE_API_TOKEN` je GitHub repo secret injektovaný jako env do
+`wrangler deploy`; `BRAVE_API_KEY` je Worker secret a do CI se vůbec nepředává (6.1).
 
 **Reprodukovatelnost?** `docs/BUILD.md` vede od `git clone` k běžící aplikaci; `/api/version` hlásí živý
 commit, takže lze ověřit shodu nasazení se zdrojem.
