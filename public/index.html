@@ -184,16 +184,24 @@
           <input type="text" id="theme" placeholder="např. fitness appka, keltská kapela, DCA index" />
         </label>
         <div class="row">
-          <label class="field" style="max-width:160px">
+          <label class="field" style="max-width:200px">
             <span data-i18n="f_count">Počet návrhů</span>
             <input type="number" id="count" value="8" min="1" max="12" />
+            <small id="count-hint" class="muted" style="display:block; font-size:11px; margin-top:4px"></small>
           </label>
           <label class="field">
             <span data-i18n="f_tlds">Domény ke kontrole</span>
             <div class="tlds" id="tlds-gen"></div>
           </label>
         </div>
-        <button class="btn" id="go-gen" data-i18n="btn_hunt">Lovit názvy</button>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:2px">
+          <button class="btn" id="go-gen" data-i18n="btn_hunt">Lovit názvy</button>
+          <button class="btn" id="go-regen" data-i18n="btn_regen" hidden
+            style="background:var(--surface-hover); color:var(--text); border:1px solid var(--border)">↻ Přegenerovat (vynech použité)</button>
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--text-dim); cursor:pointer; user-select:none">
+            <input type="checkbox" id="only-free" style="accent-color:var(--accent)" /> <span data-i18n="only_free">Jen volné všude</span>
+          </label>
+        </div>
       </div>
     </section>
 
@@ -262,11 +270,15 @@
         tab_gen:"Generátor", tab_check:"Rychlá kontrola", tab_doc:"Dokumentace",
         f_theme:"Zaměření / téma (klidně česky)", f_count:"Počet návrhů", f_tlds:"Domény ke kontrole",
         f_name:"Konkrétní název", btn_hunt:"Lovit názvy", btn_check:"Zkontrolovat",
+        btn_regen:"↻ Přegenerovat (vynech použité)", only_free:"Jen volné všude",
         th_name:"Název", th_google:"Web", th_score:"Skóre",
         doc_how:"Jak to funguje", doc_score:"Jak se počítá skóre", doc_google:"Web stopa nefunguje?", doc_free:"Bezplatné?",
         loading:"Pracuju…", err:"Chyba", empty:"Nic se nevygenerovalo, zkus jiné zaměření.",
         need_theme:"Zadej zaměření.", need_name:"Zadej název.",
-        g_off:"Web stopa je vypnutá (chybí Brave klíč) — skóre je jen podle domén. Zapnutí viz Dokumentace."
+        g_off:"Web stopa je vypnutá (chybí Brave klíč) — skóre je jen podle domén. Zapnutí viz Dokumentace.",
+        count_hint:"max {n} při {t} TLD", cap_note:"Kvůli počtu vybraných TLD je max {n} návrhů na lov — klikni „Přegenerovat" pro další.",
+        regen_added:"Přidáno {n} nových návrhů.", regen_empty:"Už nemám nové návrhy — zkus jiné zaměření nebo míň TLD.",
+        none_free:"Žádný návrh není volný ve všech vybraných TLD — zruš filtr nebo přegeneruj."
       },
       en: {
         tagline:"free-domain hunting", h1:"Find a free name and domain",
@@ -274,11 +286,15 @@
         tab_gen:"Generator", tab_check:"Quick check", tab_doc:"Docs",
         f_theme:"Focus / theme (Czech is fine)", f_count:"How many", f_tlds:"Domains to check",
         f_name:"Specific name", btn_hunt:"Hunt names", btn_check:"Check",
+        btn_regen:"↻ Regenerate (skip used)", only_free:"Only free everywhere",
         th_name:"Name", th_google:"Web", th_score:"Score",
         doc_how:"How it works", doc_score:"How the score works", doc_google:"Web footprint not working?", doc_free:"Free?",
         loading:"Working…", err:"Error", empty:"Nothing generated, try another focus.",
         need_theme:"Enter a focus.", need_name:"Enter a name.",
-        g_off:"Web footprint is off (no Brave key) — score is domain-only. See Docs to enable."
+        g_off:"Web footprint is off (no Brave key) — score is domain-only. See Docs to enable.",
+        count_hint:"max {n} for {t} TLDs", cap_note:"With the selected TLDs, max {n} names per hunt — click “Regenerate” for more.",
+        regen_added:"Added {n} new names.", regen_empty:"No more new names — try another focus or fewer TLDs.",
+        none_free:"No name is free across all selected TLDs — clear the filter or regenerate."
       }
     };
     var lang = (localStorage.getItem("axima.lang") || "cs");
@@ -299,7 +315,7 @@
       localStorage.setItem("axima.theme", next);
     };
     document.getElementById("btn-lang").onclick = function(){
-      lang = (lang === "cs" ? "en" : "cs"); localStorage.setItem("axima.lang", lang); applyI18n();
+      lang = (lang === "cs" ? "en" : "cs"); localStorage.setItem("axima.lang", lang); applyI18n(); updateCountHint();
     };
 
     /* ===================== hodiny (heartbeat 1s) ===================== */
@@ -362,13 +378,32 @@
     }
     function msg(html, cls){ document.getElementById("msg").innerHTML = html ? '<div class="banner '+(cls||"info")+'">'+html+'</div>' : ""; }
 
+    /* ===================== stav generátoru + počet ===================== */
+    var HUNT = { theme:"", tlds:["com","cz"], names:{}, results:[] }; // names = množina už použitých jmen
+    var AUTH_TLDS = ["com","net","cz","io"]; // autoritativní RDAP (neretryuje) — kvůli odhadu stropu
+    function maxNamesFor(tlds){
+      var boot = tlds.filter(function(t){ return AUTH_TLDS.indexOf(t) < 0; }).length; // bootstrap TLD se počítají 2×
+      return Math.max(1, Math.min(12, Math.floor(45 / (tlds.length + boot + 1))));
+    }
+    function ti(key, map){ var s = t(key); for (var k in map) s = s.split("{"+k+"}").join(map[k]); return s; }
+    function updateCountHint(){
+      var tlds = pickedTlds("tlds-gen"); if (!tlds.length) tlds = ["com","cz"];
+      var mx = maxNamesFor(tlds), inp = document.getElementById("count");
+      inp.max = mx;
+      if ((parseInt(inp.value,10)||0) > mx) inp.value = mx;
+      document.getElementById("count-hint").textContent = ti("count_hint", {n:mx, t:tlds.length});
+    }
+
     /* ===================== render tabulky ===================== */
-    function renderTable(tlds, results){
+    function renderTable(tlds, results, allowFilter){
+      var onlyFree = allowFilter && document.getElementById("only-free").checked;
+      var shown = onlyFree ? results.filter(function(r){ return tlds.every(function(tl){ return r.avail[tl] === "free"; }); }) : results;
       if (!results.length) { document.getElementById("results").innerHTML = '<p class="muted">'+t("empty")+'</p>'; return; }
+      if (!shown.length) { document.getElementById("results").innerHTML = '<p class="muted">'+t("none_free")+'</p>'; return; }
       var head = '<tr><th>'+t("th_name")+'</th>' +
         tlds.map(function(tl){ return '<th>.'+tl+'</th>'; }).join("") +
         '<th title="'+(lang==="cs"?"Kolik z top výsledků obsahuje jméno (méně = líp)":"How many top results contain the name (fewer = better)")+'">'+t("th_google")+'</th><th>'+t("th_score")+'</th></tr>';
-      var rows = results.map(function(r, i){
+      var rows = shown.map(function(r, i){
         var cells = tlds.map(function(tl){ return '<td>'+pill(r.avail[tl]||"unknown")+'</td>'; }).join("");
         var g = '<td class="gcount '+gClass(r.web)+'">'+fmtWeb(r.web)+'</td>';
         var sc = '<td><div class="score"><div class="scorebar"><i style="width:'+r.score+'%"></i></div><span class="scoreval">'+r.score+'</span></div></td>';
@@ -380,25 +415,45 @@
     /* ===================== akce ===================== */
     function busy(btn, on){ btn.disabled = on; }
 
-    document.getElementById("go-gen").onclick = function(){
+    function doHunt(append){
       var theme = document.getElementById("theme").value.trim();
       if (!theme) { msg(t("need_theme"), "err"); return; }
       var tlds = pickedTlds("tlds-gen"); if (!tlds.length) tlds = ["com","cz"];
       var count = parseInt(document.getElementById("count").value,10) || 8;
-      var btn = this; busy(btn,true);
+      // fresh lov (nebo změna zaměření/TLD) resetuje nasbíraný stav
+      if (!append || HUNT.theme !== theme || HUNT.tlds.join(",") !== tlds.join(",")) {
+        HUNT = { theme:theme, tlds:tlds, names:{}, results:[] }; append = false;
+      }
+      var exclude = Object.keys(HUNT.names);
+      var btnG = document.getElementById("go-gen"), btnR = document.getElementById("go-regen");
+      busy(btnG,true); busy(btnR,true);
       msg('<span class="spinner"></span> '+t("loading"));
-      document.getElementById("results").innerHTML = "";
+      if (!append) document.getElementById("results").innerHTML = "";
       fetch("/api/hunt", { method:"POST", headers:{"content-type":"application/json"},
-        body: JSON.stringify({ theme:theme, count:count, tlds:tlds }) })
+        body: JSON.stringify({ theme:theme, count:count, tlds:tlds, exclude:exclude }) })
         .then(function(r){ return r.json(); })
         .then(function(d){
           if (d.error) { msg(t("err")+": "+d.error, "err"); return; }
-          msg(d.webEnabled ? "" : t("g_off"), "info");
-          renderTable(d.tlds, d.results);
+          var fresh = (d.results||[]).filter(function(r){ return !HUNT.names[r.name]; });
+          fresh.forEach(function(r){ HUNT.names[r.name] = true; });
+          HUNT.results = HUNT.results.concat(fresh);
+          HUNT.results.sort(function(a,b){ return b.score - a.score; });
+          renderTable(tlds, HUNT.results, true);
+          document.getElementById("go-regen").hidden = false;
+          var notes = [];
+          if (!d.webEnabled) notes.push(t("g_off"));
+          if (append) notes.push(fresh.length ? ti("regen_added", {n:fresh.length}) : t("regen_empty"));
+          if (d.requested > d.maxNames) notes.push(ti("cap_note", {n:d.maxNames}));
+          msg(notes.join(" · "), "info");
         })
         .catch(function(e){ msg(t("err")+": "+e, "err"); })
-        .finally(function(){ busy(btn,false); });
-    };
+        .finally(function(){ busy(btnG,false); busy(btnR,false); });
+    }
+
+    document.getElementById("go-gen").onclick = function(){ doHunt(false); };
+    document.getElementById("go-regen").onclick = function(){ doHunt(true); };
+    document.getElementById("only-free").onchange = function(){ if (HUNT.results.length) renderTable(HUNT.tlds, HUNT.results, true); };
+    document.getElementById("tlds-gen").addEventListener("change", updateCountHint);
 
     document.getElementById("go-check").onclick = function(){
       var name = document.getElementById("name").value.trim();
@@ -413,7 +468,7 @@
         .then(function(d){
           if (d.error) { msg(t("err")+": "+d.error, "err"); return; }
           msg(d.webEnabled ? "" : t("g_off"), "info");
-          renderTable(tlds, [d.result]);
+          renderTable(tlds, [d.result], false);
         })
         .catch(function(e){ msg(t("err")+": "+e, "err"); })
         .finally(function(){ busy(btn,false); });
@@ -424,6 +479,7 @@
     document.getElementById("name").addEventListener("keydown", function(e){ if(e.key==="Enter") document.getElementById("go-check").click(); });
 
     applyI18n();
+    updateCountHint();
   </script>
 </body>
 </html>

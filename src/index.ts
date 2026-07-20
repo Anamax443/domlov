@@ -67,15 +67,20 @@ async function handleHunt(request: Request, env: Env): Promise<Response> {
   if (!theme) return json({ error: "Chybí zaměření (theme)." }, 400);
 
   let tlds = sanitizeTlds(body.tlds, DEFAULT_TLDS);
-  // Ochrana proti limitu subrequestů (Free plan ~50): names * (tlds + 1 web) <= 45
-  const maxNames = Math.max(1, Math.floor(45 / (tlds.length + 1)));
-  let count = clamp(Number(body.count) || 8, 1, Math.min(12, maxNames));
+  // Rozpočet subrequestů (Free plan ~50/request). Autoritativní RDAP (com/net/cz/io) neretryuje,
+  // ostatní (rdap.org) můžou 1× retryovat → počítáme je 2×. + 1 Brave dotaz na název.
+  const bootstrap = tlds.filter((t) => !RDAP_BASE[t]).length;
+  const perName = tlds.length + bootstrap + 1;
+  const maxNames = Math.max(1, Math.floor(45 / perName));
+  const requested = clamp(Number(body.count) || 8, 1, 12);
+  const count = Math.min(requested, maxNames);
+  const exclude = sanitizeExclude(body.exclude);
 
-  const names = await generateNames(theme, count, env);
+  const names = await generateNames(theme, count, env, exclude);
   const results = await Promise.all(names.map((name) => evaluate(name, tlds, env)));
   results.sort((a, b) => b.score - a.score);
 
-  return json({ theme, tlds, webEnabled: hasWeb(env), results });
+  return json({ theme, tlds, webEnabled: hasWeb(env), requested, maxNames, results });
 }
 
 async function handleCheck(request: Request, env: Env): Promise<Response> {
@@ -160,15 +165,17 @@ async function webFootprint(query: string, env: Env): Promise<number | null> {
   }
 }
 
-/** Generátor názvů přes Workers AI (Llama). Vrací normalizovaná, unikátní jména. */
-async function generateNames(theme: string, count: number, env: Env): Promise<string[]> {
+/** Generátor názvů přes Workers AI (Llama). Vrací normalizovaná, unikátní jména; vynechává `exclude`. */
+async function generateNames(theme: string, count: number, env: Env, exclude: string[] = []): Promise<string[]> {
+  const avoid = exclude.slice(0, 40); // do promptu jen rozumný vzorek už použitých
   const system =
     "Jsi generátor značkových názvů (brand names). Vymýšlíš krátká, dobře vyslovitelná, VYMYŠLENÁ slova " +
     "vhodná jako název firmy/appky a zároveň jako doména. Preferuj unikátní neologismy (jako 'faxxar', 'zovix', 'maxferit'), " +
     "ne běžná slovníková slova ani existující značky. Bez diakritiky, bez mezer, jen malá písmena a-z.";
   const user =
     `Zaměření: ${theme}\n` +
-    `Vygeneruj ${count + 4} kandidátů. Délka 4–14 znaků. ` +
+    (avoid.length ? `NEPOUŽÍVEJ tyto už navržené názvy (vymysli jiné): ${avoid.join(", ")}.\n` : "") +
+    `Vygeneruj ${count + 6} kandidátů. Délka 4–14 znaků. ` +
     `Vrať POUZE JSON pole řetězců, nic jiného. Příklad formátu: ["faxxar","zovix","brelly"]`;
 
   let text = "";
@@ -189,8 +196,8 @@ async function generateNames(theme: string, count: number, env: Env): Promise<st
 
   let out = parseNames(text);
   if (out.length < count) out = out.concat(fallbackNames(theme)); // pojistka když AI selže
-  // dedup + oříznout na count
-  const seen = new Set<string>();
+  // dedup + oříznout na count; `seen` předvyplněné vyloučenými → už použité jména se přeskočí
+  const seen = new Set<string>(exclude);
   const final: string[] = [];
   for (const n of out) {
     if (n && !seen.has(n)) {
@@ -236,6 +243,12 @@ function hasWeb(env: Env): boolean {
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function sanitizeExclude(input: any): string[] {
+  const arr = Array.isArray(input) ? input : [];
+  const clean = arr.map((x: any) => normalizeName(String(x))).filter(Boolean);
+  return [...new Set(clean)].slice(0, 200); // strop, ať prompt/dedup nenaroste donekonečna
 }
 
 function sanitizeTlds(input: any, fallback: string[]): string[] {
